@@ -36,6 +36,7 @@ def client():
         endpoint_url=ENDPOINT,
         aws_access_key_id=access,
         aws_secret_access_key=secret,
+        aws_session_token=os.environ.get("PRC_S3_SESSION_TOKEN") or None,
         config=Config(signature_version="s3v4", retries={"max_attempts": 5}),
     )
 
