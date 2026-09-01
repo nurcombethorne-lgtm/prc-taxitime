@@ -1,17 +1,22 @@
 """Get temporary S3 credentials without the MinIO web console.
 
-The console at https://s3.opensky-network.org:9443 does SSO via OpenSky's
-Keycloak and then calls MinIO's STS AssumeRoleWithWebIdentity API. When
-the console is unreachable, this script performs the same two steps
-directly over port 443:
+The console at https://s3.opensky-network.org:9443 is unreachable (the
+port is filtered at OpenSky's end), so we reproduce what it does over
+port 443:
 
-  1. password grant against Keycloak (auth.opensky-network.org) to get
-     an OIDC access token,
-  2. exchange it at the S3 endpoint for temporary credentials,
+  1. OAuth2 *device authorization* flow against OpenSky's Keycloak, using
+     client_id=minio-client (the client MinIO trusts). You approve in a
+     browser tab on auth.opensky-network.org -- NOT the broken :9443
+     console -- so no console access is needed.
+  2. exchange the resulting OIDC token at the S3 endpoint's STS API for
+     temporary S3 credentials (AssumeRoleWithWebIdentity).
 
-then writes PRC_S3_ACCESS_KEY / PRC_S3_SECRET_KEY / PRC_S3_SESSION_TOKEN
-into `.env` (gitignored). Credentials are prompted interactively and sent
-only to auth.opensky-network.org.
+The token must be minted for minio-client, otherwise MinIO rejects it
+with "azp claim invalid" (which is what a trino-client token gets).
+
+Writes PRC_S3_ACCESS_KEY / PRC_S3_SECRET_KEY / PRC_S3_SESSION_TOKEN into
+`.env` (gitignored). Nothing is sent anywhere except OpenSky's own
+servers.
 
 Run it yourself:
     uv run scripts/sts_login.py
@@ -19,25 +24,27 @@ Run it yourself:
 
 from __future__ import annotations
 
-import getpass
+import json
 import re
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
+import webbrowser
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = REPO_ROOT / ".env"
 
-KEYCLOAK_TOKEN_URL = (
-    "https://auth.opensky-network.org/auth/realms/"
-    "opensky-network/protocol/openid-connect/token"
-)
+REALM = "https://auth.opensky-network.org/auth/realms/opensky-network"
+DEVICE_URL = f"{REALM}/protocol/openid-connect/auth/device"
+TOKEN_URL = f"{REALM}/protocol/openid-connect/token"
 STS_ENDPOINT = "https://s3.opensky-network.org/"
-# trino-client is the only public client on this realm that allows the
-# password grant (probed 2026-09-01; the console's own minio-client
-# rejects it with unauthorized_client).
-CLIENT_IDS = ("trino-client",)
+
+# Clients to try for the device flow, best guess first. minio-client is
+# the console's own client (so its token has the azp MinIO expects).
+CLIENT_IDS = ("minio-client", "minio", "trino-client")
 DURATION_SEC = 12 * 3600
 
 
@@ -54,21 +61,39 @@ def post(url: str, data: dict[str, str]) -> tuple[int, str]:
         return e.code, e.read().decode()
 
 
-def get_oidc_token(client_id: str, username: str, password: str) -> str | None:
-    status, body = post(
-        KEYCLOAK_TOKEN_URL,
-        {
-            "client_id": client_id,
-            "grant_type": "password",
-            "username": username,
-            "password": password,
-        },
-    )
+def start_device_flow(client_id: str) -> dict | None:
+    status, body = post(DEVICE_URL, {"client_id": client_id, "scope": "openid"})
     if status != 200:
-        print(f"  keycloak ({client_id}): HTTP {status} {body[:120]}")
+        print(f"  device auth ({client_id}): HTTP {status} {body[:140]}")
         return None
-    m = re.search(r'"access_token"\s*:\s*"([^"]+)"', body)
-    return m.group(1) if m else None
+    return json.loads(body)
+
+
+def poll_for_token(client_id: str, device: dict) -> str | None:
+    interval = device.get("interval", 5)
+    deadline = time.time() + device.get("expires_in", 600)
+    while time.time() < deadline:
+        time.sleep(interval)
+        status, body = post(
+            TOKEN_URL,
+            {
+                "client_id": client_id,
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                "device_code": device["device_code"],
+            },
+        )
+        if status == 200:
+            return json.loads(body)["access_token"]
+        err = json.loads(body).get("error", "")
+        if err == "authorization_pending":
+            continue
+        if err == "slow_down":
+            interval += 5
+            continue
+        print(f"  token poll: {err or body[:140]}")
+        return None
+    print("  device code expired before approval")
+    return None
 
 
 def sts_exchange(token: str) -> dict[str, str] | None:
@@ -82,7 +107,7 @@ def sts_exchange(token: str) -> dict[str, str] | None:
         },
     )
     if status != 200:
-        print(f"  sts: HTTP {status} {body[:200]}")
+        print(f"  sts: HTTP {status} {body[:220]}")
         return None
     creds = {}
     for tag, key in (
@@ -99,7 +124,6 @@ def sts_exchange(token: str) -> dict[str, str] | None:
 
 
 def write_env(creds: dict[str, str]) -> None:
-    lines: list[str] = []
     if ENV_FILE.exists():
         lines = [
             ln for ln in ENV_FILE.read_text().splitlines()
@@ -116,28 +140,40 @@ def write_env(creds: dict[str, str]) -> None:
 
 
 def main() -> None:
-    print("OpenSky Network login (sent only to auth.opensky-network.org)")
-    username = input("  username: ").strip()
-    password = getpass.getpass("  password: ")
-
     for client_id in CLIENT_IDS:
-        print(f"trying client_id={client_id} ...")
-        token = get_oidc_token(client_id, username, password)
+        print(f"\n=== device login with client_id={client_id} ===")
+        device = start_device_flow(client_id)
+        if not device:
+            continue
+
+        url = device.get("verification_uri_complete") or device["verification_uri"]
+        print("\n  Open this URL in a browser and approve the login:")
+        print(f"    {url}")
+        if not device.get("verification_uri_complete"):
+            print(f"  and enter code: {device['user_code']}")
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
+        print("\n  Waiting for you to approve in the browser ...")
+
+        token = poll_for_token(client_id, device)
         if not token:
             continue
         creds = sts_exchange(token)
         if creds:
             write_env(creds)
             print(f"\nTemporary credentials written to {ENV_FILE}")
-            print(f"Valid for up to {DURATION_SEC // 3600}h "
-                  "(server may cap this lower). Re-run this script to renew.")
+            print(f"Valid up to {DURATION_SEC // 3600}h (server may cap lower). "
+                  "Re-run this script to renew.")
             print("Next: uv run scripts/fetch_data.py --discover")
             return
+        print(f"  {client_id} token was minted but MinIO rejected it; trying next client.")
+
     sys.exit(
-        "\nAll attempts failed. The MinIO STS API may be disabled for "
-        "direct use, or none of the tried client_ids allow the password "
-        "grant. Fall back to the web console when it is reachable, or "
-        "email challenge@opensky-network.org."
+        "\nAll clients failed. If every attempt hit the azp/STS error, ask on "
+        "the challenge Discord which Keycloak client MinIO trusts, or email "
+        "challenge@opensky-network.org — the :9443 console is unreachable."
     )
 
 
