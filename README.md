@@ -36,6 +36,13 @@ uv run scripts/fetch_data.py --discover   # find the data bucket
 uv run scripts/fetch_data.py --bucket <data-bucket>
 ```
 
+Get the access key from the MinIO console at
+**https://s3-console.opensky-network.org** (Other Authentication Methods →
+Login with SSO → Access Keys → Create access key). Note this is a
+different host from `s3.opensky-network.org:9443`, which is unreachable;
+`scripts/sts_login.py` is a token-based fallback kept only for the case
+where the console itself is down.
+
 ## Workflow
 
 ```bash
