@@ -34,7 +34,7 @@ COLUMN_HINTS = {
     "runway": ("RWY", "RUNWAY"),
 }
 TARGET = "TAXITIME_SEC_mvt"
-PHASE_FILTER = "PHASE = 'DEP'"
+PHASE_FILTER = "PHASE_mvt = 'DEP'"
 
 
 def training_files() -> list[Path]:
