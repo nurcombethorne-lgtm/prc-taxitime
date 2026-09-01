@@ -1,0 +1,13 @@
+# Credentials — never commit
+.env
+
+# Competition data — fetched from OpenSky MinIO, not redistributed here
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store

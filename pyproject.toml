@@ -1,0 +1,13 @@
+[project]
+name = "prc-taxitime"
+version = "0.1.0"
+description = "PRC Data Challenge 2026 — taxi-out time prediction (team resilient-kiwi)"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.43.85",
+    "duckdb>=1.5.5",
+    "pandas>=3.0.5",
+    "pyarrow>=25.0.1",
+    "python-dotenv>=1.2.3",
+]
