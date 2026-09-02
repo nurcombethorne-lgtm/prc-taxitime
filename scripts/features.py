@@ -26,6 +26,7 @@ import duckdb
 from s3util import DATA_DIR
 
 WINDOWS_MIN = (15, 30, 60)
+MAX_TURN = 86400  # ignore a stand match older than a day (stale link)
 
 
 def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
@@ -37,9 +38,17 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
     tgt = ", TAXITIME_SEC_mvt::DOUBLE AS y"
     con.sql(f"""
         CREATE OR REPLACE TEMP TABLE mv AS
-        SELECT MVT_ID_mvt AS mvt_id, ADEP_mvt AS apt, PHASE_mvt AS phase,
+        SELECT MVT_ID_mvt AS mvt_id,
+               -- The movement airport differs by phase: for a DEPARTURE it is
+               -- ADEP_mvt, but for an ARRIVAL the movement happened at
+               -- ADES_mvt (ADEP_mvt is then the *origin*). Using ADEP_mvt for
+               -- both buckets arrivals under foreign airports and silently
+               -- turns every arrival-derived feature into noise.
+               CASE WHEN PHASE_mvt = 'DEP' THEN ADEP_mvt ELSE ADES_mvt END AS apt,
+               PHASE_mvt AS phase,
                MVT_TIME_UTC_mvt AS mvt_time, AOBT_3_flt AS aobt,
                SCHED_TIME_UTC_mvt AS sched, EOBT_1_flt AS eobt,
+               BLOCK_TIME_UTC_mvt AS block,
                STAND_mvt AS stand, RUNWAY_mvt AS rwy,
                AIRCRAFT_TYPE_mvt AS actype, WK_TBL_CAT_flt AS wake,
                AIRCRAFT_OPERATOR_flt AS operator,
@@ -132,6 +141,40 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         ) WHERE kind='QRY'
     """)
 
+    # --- turnaround: link the departure to the arrival that parked here ---
+    # Arrivals carry an on-block time (not blanked in the ranking set), so the
+    # inbound leg that delivered this aircraft can be recovered as the most
+    # recent arrival that went on-block at the same stand before this
+    # departure pushes back. Registration is not in the data, so stand+time
+    # adjacency is the linkage; a stale match is guarded by MAX_TURN.
+    con.sql(f"""
+        CREATE OR REPLACE TEMP TABLE turn AS
+        SELECT d.mvt_id,
+               epoch(d.ref - a.onblock) AS turnaround_sec,
+               a.in_delay  AS inbound_delay,
+               a.in_taxi   AS inbound_taxi_in
+        FROM (SELECT mvt_id, apt, stand, coalesce(aobt, sched, mvt_time) AS ref
+              FROM mv WHERE phase='DEP' AND stand IS NOT NULL) d
+        ASOF LEFT JOIN (
+              SELECT apt, stand, block AS onblock,
+                     epoch(mvt_time - sched) AS in_delay,
+                     y AS in_taxi
+              FROM mv WHERE phase='ARR' AND stand IS NOT NULL AND block IS NOT NULL
+        ) a
+          ON d.apt = a.apt AND d.stand = a.stand AND d.ref >= a.onblock
+    """)
+    con.sql(f"""
+        CREATE OR REPLACE TEMP TABLE turn AS
+        SELECT mvt_id,
+               CASE WHEN turnaround_sec BETWEEN 0 AND {MAX_TURN}
+                    THEN turnaround_sec END AS turnaround_sec,
+               CASE WHEN turnaround_sec BETWEEN 0 AND {MAX_TURN}
+                    THEN inbound_delay END AS inbound_delay,
+               CASE WHEN turnaround_sec BETWEEN 0 AND {MAX_TURN}
+                    THEN inbound_taxi_in END AS inbound_taxi_in
+        FROM turn
+    """)
+
     # --- planned demand: scheduled departures in the surrounding hour ---
     con.sql("""
         CREATE OR REPLACE TEMP TABLE sd AS
@@ -155,6 +198,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
                coalesce(q.dep_queue, 0) AS dep_queue,
                {', '.join(f'thr.takeoff_prev{w}, thr.landing_prev{w}' for w in WINDOWS_MIN)},
                sd.sched_dep_60, nowc.arr_taxi_mean60, nowc.dep_recov_mean60,
+               turn.turnaround_sec, turn.inbound_delay, turn.inbound_taxi_in,
                extract(hour FROM m.mvt_time) AS hr,
                extract(dow  FROM m.mvt_time) AS dow,
                extract(month FROM m.mvt_time) AS mon,
@@ -164,6 +208,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         LEFT JOIN thr   ON thr.mvt_id = m.mvt_id
         LEFT JOIN sd    ON sd.mvt_id = m.mvt_id
         LEFT JOIN nowc  ON nowc.mvt_id = m.mvt_id
+        LEFT JOIN turn  ON turn.mvt_id = m.mvt_id
         WHERE m.phase = 'DEP'
     """)
     print(f"  {table}: {con.sql(f'SELECT count(*) FROM {table}').fetchone()[0]:,} departures")

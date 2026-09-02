@@ -302,3 +302,53 @@ Critically, the leader's 253.94 proves the earlier "we are near the
 irreducible floor" reading was wrong: that estimate came from the
 *expected* count of 24h-fault rows, which has enormous variance. At least
 43s of real signal remains to be found — by structural work, not tuning.
+
+## Turnaround linkage — and a bug it exposed
+
+**The bug first.** `features.py` derived the movement airport as `ADEP_mvt`
+for every row. That is only correct for departures: an ARRIVAL's movement
+happens at `ADES_mvt`, while `ADEP_mvt` is then its *origin*. Verified:
+100% of arrival rows have `ADES_mvt` among the ten airports, and only 16%
+have `ADEP_mvt` among them. So every arrival-derived feature had been
+bucketing arrivals under foreign origin airports — pure noise. That is the
+real reason the earlier "nowcast" experiment showed exactly zero gain; the
+idea was sound, the plumbing was broken.
+
+**The linkage.** Arrivals carry an on-block time that is not blanked in the
+ranking set, so the inbound leg that delivered an aircraft is recoverable
+as the most recent arrival that went on-block at the same stand before this
+departure pushes back (no registration field exists, so stand+time
+adjacency is the join; matches older than 24h are discarded). Coverage is
+98.0% in training and 97.3% in ranking, median turnaround ~92 vs ~99 min —
+distributions agree, so the feature transfers.
+
+New features: `turnaround_sec`, `inbound_delay`, `inbound_taxi_in`, plus
+the now-meaningful `arr_taxi_mean60` / `dep_recov_mean60`.
+
+**Ablation (this is the disciplined part).** Adding them everywhere looked
+*worse* on the all-airport metric (339.4 -> 341.0), but that was LIRF alone
+regressing +48.3 while **8 of 8 stable airports improved**:
+
+    EGLL -7.5  LEBL -5.3  LTFM -5.1  EDDF -2.5  EDDM -2.2
+    LSZH -2.1  LEMD -1.8  EHAM +0.1        stable-only 226.6 -> 222.9
+
+Consistency across 8/8 is signal; the LIRF swing is the known lottery. The
+cause: unmatched flights have no AOBT_3_flt, so the turnaround reference
+falls back to scheduled time and the features are unreliable exactly where
+LIRF's error lives. Giving the **matched** model the new features and
+leaving the **unmatched** model on the base set keeps the gain and removes
+the regression:
+
+| variant | all-airport | stable-only | LIRF |
+|---|---|---|---|
+| base | 339.4 | 226.6 | 552.0 |
+| new features everywhere | 341.0 | 222.9 | 600.3 |
+| **new features, matched model only** | **336.8** | **223.0** | **550.5** |
+
+**Lesson: judge features on the stable airports.** The all-airport metric is
+dominated by LIRF/LFPG variance and would have caused us to reject a change
+that genuinely helps everywhere else.
+
+| ver | approach | offline estimate | actual score |
+|-----|----------|------------------|--------------|
+| v7  | ADES_mvt fix + turnaround linkage, matched model only | 336.2s | **292.22s** |

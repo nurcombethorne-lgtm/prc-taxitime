@@ -53,8 +53,21 @@ CATS = ["apt", "stand", "rwy", "actype", "wake", "operator", "segment", "ades"]
 NUMS = ["dep_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_prev60",
         "landing_prev15", "landing_prev30", "landing_prev60",
         "sched_dep_60", "recov", "aobt_vs_eobt", "hr", "dow", "mon",
-        "unmatched", "D"]
+        "unmatched", "D",
+        # Arrival-derived features are meaningful only after the ADES_mvt fix
+        # in features.py; before it they bucketed arrivals by origin airport.
+        "arr_taxi_mean60", "dep_recov_mean60",
+        # Turnaround: the inbound leg that delivered this aircraft, linked by
+        # stand + on-block adjacency (~98% coverage).
+        "turnaround_sec", "inbound_delay", "inbound_taxi_in"]
 FEATS = CATS + NUMS
+# Features that depend on a real pushback time. Unmatched flights have no
+# AOBT_3_flt, so the turnaround reference falls back to scheduled time and
+# these become unreliable exactly where LIRF's error lives — feeding them to
+# the unmatched model cost LIRF ~48s. The matched model keeps them.
+MATCHED_ONLY = ["arr_taxi_mean60", "dep_recov_mean60",
+                "turnaround_sec", "inbound_delay", "inbound_taxi_in"]
+FEATS_UNMATCHED = [f for f in FEATS if f not in MATCHED_ONLY]
 
 PARAMS = dict(objective="regression", metric="rmse", learning_rate=0.05,
               num_leaves=255, min_data_in_leaf=100, feature_fraction=0.9,
@@ -132,7 +145,7 @@ def fit_normal(train: pd.DataFrame) -> dict:
                              categorical_feature=CATS),
             num_boost_round=NUM_ROUNDS))
     out["unmatched"] = lgb.train(
-        PARAMS, lgb.Dataset(b[FEATS], b["y"], categorical_feature=CATS),
+        PARAMS, lgb.Dataset(b[FEATS_UNMATCHED], b["y"], categorical_feature=CATS),
         num_boost_round=NUM_ROUNDS_UNMATCHED) if len(b) > 500 else None
     out["fallback"] = float(b["y"].mean()) if len(b) else float(train["y"].mean())
     return out
@@ -147,7 +160,7 @@ def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
         out[m] = avg + df.loc[m, "recov"].to_numpy()
     if (~m).any():
         if boosters["unmatched"] is not None:
-            out[~m] = boosters["unmatched"].predict(df.loc[~m, FEATS])
+            out[~m] = boosters["unmatched"].predict(df.loc[~m, FEATS_UNMATCHED])
         else:
             out[~m] = boosters["fallback"]
     return out
