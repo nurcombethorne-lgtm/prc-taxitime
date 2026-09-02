@@ -228,3 +228,40 @@ model on the raw target.
 
 Remaining error is concentrated in LFPG (~45% of weighted MSE) and LIRF
 (~18%), both dominated by irreducible corrupted records.
+
+## The 24-hour block-time fault (corroborated on Discord)
+
+A competitor reported anomalies; the counts reproduce exactly on our copy,
+so the report is sound:
+
+  - 119 training rows with taxi time > 300 min (91 DEP + 28 ARR) — exact match
+  - ~15 DEP rows within an hour of exactly 24h, target = 86400 + a normal taxi
+  - EHAM January 2026 has 805 rows with the `_flt` family null — exact match
+
+Cause appears to be BLOCK_TIME landing a day early (or MVT_TIME a day late).
+Our own worst residuals are this fault: LFPG y=84,240 and LIRF y=87,177.
+
+**Not exploitable.** For roughly half of them every ranking-visible column
+looks completely ordinary (LSZH: D=939s, recov normal, truth 87,341s), so
+there is no signature to key on. The other half coincide with the
+scheduled-fallback artifact (y == D) and are already handled.
+
+**But it dominates the scoring floor.** At a rate of 15/2,085,047, about
+1.55 such rows are expected among the 215,876 scored departures, and a
+single missed one contributes ~33,800 to MSE — 37% of our MSE at RMSE 300.
+The irreducible variance p(1-p)*86400^2 is ~53,700, roughly 59% of it. So
+a large share of every team's score is a lottery on one or two corrupted
+rows, identically for everyone since the truth set is shared. The
+RMSE-optimal hedge is only p*86400 = 0.62s per row, i.e. not worth adding.
+
+**What it did surface:** our prediction ceiling was set at 40,000s, which
+truncated legitimate high-D predictions. Lifting it improved validation
+346.9 -> 342.8s (saturating by 60,000) and the leaderboard 300.48 -> 297.01.
+
+| ver | approach | offline estimate | actual score |
+|-----|----------|------------------|--------------|
+| v5  | as v4 with the prediction ceiling raised to 90,000s | 342.8s | **297.01s** |
+
+Worth watching: if the organisers regenerate or filter the dataset, scores
+move for everyone — and whether existing submissions are rescored or must
+be resubmitted is still unanswered.

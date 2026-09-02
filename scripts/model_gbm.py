@@ -37,7 +37,12 @@ from s3util import DATA_DIR, TEAM_NAME
 SUBMISSIONS = Path(__file__).resolve().parent.parent / "submissions"
 DB = DATA_DIR / "features.duckdb"
 TOL = 60.0
-CLIP_LO, CLIP_HI = 60.0, 40000.0
+# Some genuine targets sit just above 24h: a known data fault puts
+# BLOCK_TIME a day early, giving taxitime ~= 86400 + a normal taxi. The
+# old 40000 ceiling truncated predictions the mixture legitimately wanted
+# to make on high-D rows (validation 346.9s -> 342.8s when lifted; the
+# curve saturates by 60000).
+CLIP_LO, CLIP_HI = 60.0, 90000.0
 D_EDGES = [0, 600, 1200, 1800, 2700, 3600, 5400, 7200, 10800, 14400, 21600, 43200]
 
 CATS = ["apt", "stand", "rwy", "actype", "wake", "operator", "segment", "ades"]
