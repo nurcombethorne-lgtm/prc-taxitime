@@ -53,3 +53,23 @@ A median-by-group baseline and an AOBT-based proxy are in the same ~350s
 ballpark. Real gains will come from combining AOBT_3_flt (and EOBT_1_flt)
 as features with congestion/queue features in a per-airport model, not
 from either signal alone.
+
+## Submission log
+
+| ver | approach | offline estimate | actual score |
+|-----|----------|------------------|--------------|
+| v1  | per-airport hybrid: hierarchical group mean of taxitime (direct) vs `recov + mean(offset)`; offset used at EDDF, LFPG, LIRF, LSZH; clipped [60, 7200] | 505.9s | **511.88s** |
+
+The ranking-weighted offline estimate came within 1.2% of the real score,
+so the validation harness (fit on 10 months, score Jan+Jul 2025, weight
+per-airport RMSE by the ranking set's airport mix) is reliable enough to
+iterate against without burning submissions.
+
+Scoring detail: results land in the team bucket as
+`<file>_result.json` within ~15s, containing `score` and `used_pairs`.
+Truth set is `prc-2026-testsets/truthing.parquet`.
+
+## Airports: 10, not 11
+
+LTAI (Antalya) does not appear in the training or ranking data at all.
+Present: EDDF EDDM EGLL EHAM LEBL LEMD LFPG LIRF LSZH LTFM.
