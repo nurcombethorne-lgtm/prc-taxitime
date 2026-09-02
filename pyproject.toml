@@ -7,7 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.43.85",
     "duckdb>=1.5.5",
+    "lightgbm>=4.7.0",
     "pandas>=3.0.5",
     "pyarrow>=25.0.1",
     "python-dotenv>=1.2.3",
+    "scikit-learn>=1.9.0",
 ]
