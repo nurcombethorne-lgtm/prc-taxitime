@@ -170,3 +170,61 @@ pushed back matters much more.
 Harness calibration is now conservative rather than optimistic (v3 scored
 40s BETTER than estimated), consistent with January 2025 being a harder
 month than January 2026.
+
+## Winter-operations hypothesis: WRONG
+
+LFPG and LIRF being the worst airports, and both being January-only on the
+leaderboard, suggested de-icing / winter operations. Residual analysis
+refutes it. The error is not a broad seasonal effect but a handful of
+corrupted individual flights:
+
+  - LFPG January: the **top 10 flights carry 88.4% of squared error**, and
+    two days (19 and 23 Jan) carry 87.5%. Worst single flight has
+    y = 84,240s (23 hours).
+  - LIRF January: top 10 flights = 71.3%; one day (25 Jan) = 61.4%.
+
+Across a whole year LFPG has only ~4 flights over 4 hours (0.1% of its
+3,762 unmatched rows). Our January validation happened to contain two of
+them. So LFPG's ~810s RMSE is set by a couple of freak records, the count
+of which in the 2026 truth is essentially a lottery. **Chasing it is
+chasing noise**, and any per-airport LFPG estimate is very high variance.
+
+The two airports also fail in opposite directions, which is worth knowing:
+LFPG is dominated by huge under-predictions (genuine extreme values we
+cannot see coming), LIRF by over-predictions - false positives of the
+scheduled-fallback rule, where p is high but the flight turned out normal.
+The mixture is nonetheless well calibrated in the mean per (apt, unmatched,
+D-bin) cell, so those errors are largely irreducible given the features.
+
+## Things tried that did NOT work
+
+  - **Contemporaneous "nowcast" features.** Arrival taxi-IN times are not
+    blanked in the ranking set, so mean arrival taxi-in and mean departure
+    `recov` over the preceding hour are legitimately available at predict
+    time. Distributions match between train and ranking (arrival taxi-in
+    512.2s vs 510.1s), but adding them moved the estimate 349.3 -> 349.6,
+    i.e. nothing. The flight's own `recov` already carries the signal.
+    Kept in features.py, left out of the model.
+  - **Offset reformulation via group means** (see experiment_offset.py):
+    lost overall, because stand/runway explain taxi *distance* well but
+    explain pushback delay poorly.
+
+## What did work: residual target
+
+`recov` is the strongest feature, but a tree cannot represent
+`y = recov + correction`, since its leaves emit constants. Training the
+matched-flight model on the residual `y - recov` and adding `recov` back
+is a much easier target. Unmatched flights (no `recov`) get a separate
+model on the raw target.
+
+## Submission log (final for this session)
+
+| ver | approach | offline estimate | actual score |
+|-----|----------|------------------|--------------|
+| v1  | per-airport direct/offset hybrid, group means | 505.9s | **511.88s** |
+| v2  | scheduled-fallback mixture, p by (apt, unmatched, D-bin) | 420.1s | **458.24s** |
+| v3  | LightGBM over congestion features, corrected harness | 354.9s | **314.42s** |
+| v4  | + `unmatched`/`D` as features, residual target `y - recov` | 346.9s | **300.48s** |
+
+Remaining error is concentrated in LFPG (~45% of weighted MSE) and LIRF
+(~18%), both dominated by irreducible corrupted records.

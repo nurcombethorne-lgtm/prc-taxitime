@@ -41,9 +41,14 @@ CLIP_LO, CLIP_HI = 60.0, 40000.0
 D_EDGES = [0, 600, 1200, 1800, 2700, 3600, 5400, 7200, 10800, 14400, 21600, 43200]
 
 CATS = ["apt", "stand", "rwy", "actype", "wake", "operator", "segment", "ades"]
+# `unmatched` and `D` belong here even though the mixture also uses them:
+# the mixture needs E[y | NOT artifact], and that expectation genuinely
+# depends on how delayed the flight is and on whether it has an NM record
+# (unmatched non-artifact flights taxi far longer than the fleet average).
 NUMS = ["dep_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_prev60",
         "landing_prev15", "landing_prev30", "landing_prev60",
-        "sched_dep_60", "recov", "aobt_vs_eobt", "hr", "dow", "mon"]
+        "sched_dep_60", "recov", "aobt_vs_eobt", "hr", "dow", "mon",
+        "unmatched", "D"]
 FEATS = CATS + NUMS
 
 PARAMS = dict(objective="regression", metric="rmse", learning_rate=0.05,
@@ -60,6 +65,7 @@ def d_bin(s: pd.Series) -> pd.Series:
 def prep(df: pd.DataFrame) -> pd.DataFrame:
     for c in CATS:
         df[c] = df[c].astype("category")
+    df["unmatched"] = df["unmatched"].astype(int)
     return df
 
 
@@ -93,6 +99,46 @@ def combine(p: np.ndarray, D: np.ndarray, normal: np.ndarray) -> np.ndarray:
     return np.clip(p * Ds + (1 - p) * normal, CLIP_LO, CLIP_HI)
 
 
+def fit_normal(train: pd.DataFrame) -> dict:
+    """Two boosters for the non-artifact ("normal") term.
+
+    For flights with an NM record, `recov` (take-off minus actual
+    off-block) is already very close to the answer, and a tree cannot
+    represent `y = recov + correction` because its leaves emit constants.
+    So that model is trained on the RESIDUAL `y - recov` and `recov` is
+    added back at predict time, which is a far easier target to fit.
+
+    Unmatched flights have no `recov`, so they get their own model on the
+    raw target.
+    """
+    m = train["recov"].notna()
+    a, b = train[m], train[~m]
+    out = {}
+    out["matched"] = lgb.train(
+        PARAMS, lgb.Dataset(a[FEATS], a["y"] - a["recov"],
+                            categorical_feature=CATS),
+        num_boost_round=NUM_ROUNDS)
+    out["unmatched"] = lgb.train(
+        PARAMS, lgb.Dataset(b[FEATS], b["y"], categorical_feature=CATS),
+        num_boost_round=min(NUM_ROUNDS, 400)) if len(b) > 500 else None
+    out["fallback"] = float(b["y"].mean()) if len(b) else float(train["y"].mean())
+    return out
+
+
+def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
+    out = np.empty(len(df), dtype=float)
+    m = df["recov"].notna().to_numpy()
+    if m.any():
+        sub = df.loc[m, FEATS]
+        out[m] = boosters["matched"].predict(sub) + df.loc[m, "recov"].to_numpy()
+    if (~m).any():
+        if boosters["unmatched"] is not None:
+            out[~m] = boosters["unmatched"].predict(df.loc[~m, FEATS])
+        else:
+            out[~m] = boosters["fallback"]
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -111,12 +157,10 @@ def main() -> None:
     art = fit["D"].notna() & (fit["y"] - fit["D"]).abs().le(TOL)
     train = prep(fit[~art].copy())
     print(f"gbm trains on {len(train):,} non-artifact rows")
-    booster = lgb.train(PARAMS, lgb.Dataset(train[FEATS], train["y"],
-                                            categorical_feature=CATS),
-                        num_boost_round=NUM_ROUNDS)
+    boosters = fit_normal(train)
 
     valp = prep(val.copy())
-    normal = booster.predict(valp[FEATS])
+    normal = predict_normal(boosters, valp)
     pred = combine(apply_p(val, cell, apt_fb), val["D"].to_numpy(), normal)
     val["pred"] = pred
 
@@ -143,7 +187,8 @@ def main() -> None:
     print(f"\nranking-weighted GBM estimate: {mse ** 0.5:.1f}s   "
           f"(v1 511.88, v2 458.24)")
 
-    imp = pd.Series(booster.feature_importance("gain"), index=FEATS).sort_values(ascending=False)
+    imp = pd.Series(boosters["matched"].feature_importance("gain"),
+                    index=FEATS).sort_values(ascending=False)
     print("\ntop features by gain:")
     print((imp / imp.sum() * 100).head(10).round(1).to_string())
 
@@ -154,9 +199,7 @@ def main() -> None:
     cell, apt_fb = fit_p(df)
     art_all = df["D"].notna() & (df["y"] - df["D"]).abs().le(TOL)
     full = prep(df[~art_all].copy())
-    booster = lgb.train(PARAMS, lgb.Dataset(full[FEATS], full["y"],
-                                            categorical_feature=CATS),
-                        num_boost_round=NUM_ROUNDS)
+    boosters = fit_normal(full)
 
     con = duckdb.connect(str(DB), read_only=True)
     rk = con.sql("SELECT * FROM rank_feat").df()
@@ -164,7 +207,7 @@ def main() -> None:
     rkp = prep(rk.copy())
     for c in CATS:  # align category levels with training
         rkp[c] = rkp[c].cat.set_categories(full[c].cat.categories)
-    normal_r = booster.predict(rkp[FEATS])
+    normal_r = predict_normal(boosters, rkp)
     rk["pred"] = combine(apply_p(rk, cell, apt_fb), rk["D"].to_numpy(), normal_r)
 
     SUBMISSIONS.mkdir(exist_ok=True)

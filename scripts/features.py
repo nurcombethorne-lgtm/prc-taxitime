@@ -30,7 +30,11 @@ WINDOWS_MIN = (15, 30, 60)
 
 def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
           with_target: bool) -> None:
-    tgt = ", TAXITIME_SEC_mvt::DOUBLE AS y" if with_target else ""
+    # Always carry taxi time into `mv`: for ARRIVALS it is present in the
+    # ranking set too and feeds the nowcast. For departures in the ranking
+    # set it is NULL (blanked), and it is only emitted as the target when
+    # with_target is set.
+    tgt = ", TAXITIME_SEC_mvt::DOUBLE AS y"
     con.sql(f"""
         CREATE OR REPLACE TEMP TABLE mv AS
         SELECT MVT_ID_mvt AS mvt_id, ADEP_mvt AS apt, PHASE_mvt AS phase,
@@ -99,6 +103,35 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         ) WHERE kind='QRY'
     """)
 
+    # --- contemporaneous conditions ("nowcast") ---
+    # Arrival taxi-IN times are NOT blanked in the ranking set, and neither
+    # are other departures' take-off/pushback stamps, so the recent state of
+    # the airfield is observable at prediction time. Departure taxi-OUT is
+    # blanked in ranking and must never be used here.
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE nowc AS
+        SELECT mvt_id, arr_taxi_mean60, dep_recov_mean60 FROM (
+            SELECT mvt_id, kind,
+                   avg(val) FILTER (WHERE kind='ARR') OVER w AS arr_taxi_mean60,
+                   avg(val) FILTER (WHERE kind='REC') OVER w AS dep_recov_mean60
+            FROM (
+                SELECT apt, mvt_time AS t, 'ARR' AS kind,
+                       y AS val, NULL::DOUBLE AS mvt_id
+                  FROM mv WHERE phase='ARR' AND mvt_time IS NOT NULL AND y IS NOT NULL
+                UNION ALL
+                SELECT apt, mvt_time, 'REC',
+                       epoch(mvt_time - aobt), NULL
+                  FROM mv WHERE phase='DEP' AND mvt_time IS NOT NULL AND aobt IS NOT NULL
+                UNION ALL
+                SELECT apt, aobt, 'QRY', NULL, mvt_id
+                  FROM mv WHERE phase='DEP' AND aobt IS NOT NULL
+            )
+            WINDOW w AS (PARTITION BY apt ORDER BY t
+                         RANGE BETWEEN INTERVAL 60 MINUTE PRECEDING
+                                   AND INTERVAL 1 SECOND PRECEDING)
+        ) WHERE kind='QRY'
+    """)
+
     # --- planned demand: scheduled departures in the surrounding hour ---
     con.sql("""
         CREATE OR REPLACE TEMP TABLE sd AS
@@ -121,7 +154,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
                epoch(m.aobt - m.eobt)      AS aobt_vs_eobt,
                coalesce(q.dep_queue, 0) AS dep_queue,
                {', '.join(f'thr.takeoff_prev{w}, thr.landing_prev{w}' for w in WINDOWS_MIN)},
-               sd.sched_dep_60,
+               sd.sched_dep_60, nowc.arr_taxi_mean60, nowc.dep_recov_mean60,
                extract(hour FROM m.mvt_time) AS hr,
                extract(dow  FROM m.mvt_time) AS dow,
                extract(month FROM m.mvt_time) AS mon,
@@ -130,6 +163,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         LEFT JOIN qtab q ON q.mvt_id = m.mvt_id
         LEFT JOIN thr   ON thr.mvt_id = m.mvt_id
         LEFT JOIN sd    ON sd.mvt_id = m.mvt_id
+        LEFT JOIN nowc  ON nowc.mvt_id = m.mvt_id
         WHERE m.phase = 'DEP'
     """)
     print(f"  {table}: {con.sql(f'SELECT count(*) FROM {table}').fetchone()[0]:,} departures")
