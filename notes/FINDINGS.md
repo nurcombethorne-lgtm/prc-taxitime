@@ -265,3 +265,40 @@ truncated legitimate high-D predictions. Lifting it improved validation
 Worth watching: if the organisers regenerate or filter the dataset, scores
 move for everyone — and whether existing submissions are rescored or must
 be resubmitted is still unanswered.
+
+## Hyperparameter tuning does NOT transfer — the harness has a noise floor
+
+v6 tuned the boosting rounds on the validation curve (matched model peaks
+at ~400 rounds, unmatched at ~800) and averaged three seeds. Validation
+improved 342.8 -> 338.6s, a clean 4.2s. The leaderboard went the other
+way: 297.01 -> 297.24.
+
+The gain was selection bias: rounds and seeds were chosen against the very
+set used to measure them, so a few seconds of apparent improvement was
+fitting the validation noise rather than the problem.
+
+**Rule going forward: treat differences below roughly 5s on this harness as
+noise, and only submit changes with a clear mechanism.** Every change that
+actually transferred had one:
+
+| change | mechanism | transferred? |
+|---|---|---|
+| v2 scheduled-fallback mixture | target is mechanically `D` for a known subgroup | yes, -53s |
+| v3 GBM over features | genuinely new information | yes, -144s |
+| v4 residual target `y - recov` | trees cannot represent `recov + correction` | yes, -14s |
+| v5 raised prediction ceiling | clip was truncating valid predictions | yes, -3.5s |
+| v6 rounds + seed averaging | no mechanism, pure tuning | **no, +0.2s** |
+
+Best score stands at **297.01 (v5)** since best-of-all-submissions counts,
+so the failed experiment cost nothing but is worth not repeating.
+
+## Leaderboard context (2 Sep 2026)
+
+8th of 17. Leader quick-boat 253.94 (14 versions), 2nd enthusiastic-daisy
+257.50 (51 versions), 3rd jovial-uniform 259.67. Podium is ~37s away and
+9th place is 0.07s behind us.
+
+Critically, the leader's 253.94 proves the earlier "we are near the
+irreducible floor" reading was wrong: that estimate came from the
+*expected* count of 24h-fault rows, which has enormous variance. At least
+43s of real signal remains to be found — by structural work, not tuning.

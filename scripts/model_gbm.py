@@ -60,7 +60,13 @@ PARAMS = dict(objective="regression", metric="rmse", learning_rate=0.05,
               num_leaves=255, min_data_in_leaf=100, feature_fraction=0.9,
               bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0,
               max_cat_threshold=64, cat_smooth=20, verbose=-1, num_threads=0)
-NUM_ROUNDS = 900
+# Tuned on the validation curve: the matched (residual-target) model peaks
+# near 400 rounds and overfits beyond, while the unmatched model — a much
+# smaller, noisier population — keeps improving to ~800. Averaging a few
+# seeds of the matched model shaves a little more variance.
+NUM_ROUNDS = 400
+NUM_ROUNDS_UNMATCHED = 800
+SEEDS = (1, 2, 3)
 
 
 def d_bin(s: pd.Series) -> pd.Series:
@@ -118,14 +124,16 @@ def fit_normal(train: pd.DataFrame) -> dict:
     """
     m = train["recov"].notna()
     a, b = train[m], train[~m]
-    out = {}
-    out["matched"] = lgb.train(
-        PARAMS, lgb.Dataset(a[FEATS], a["y"] - a["recov"],
-                            categorical_feature=CATS),
-        num_boost_round=NUM_ROUNDS)
+    out = {"matched": []}
+    for seed in SEEDS:
+        prm = dict(PARAMS, seed=seed, bagging_seed=seed, feature_fraction_seed=seed)
+        out["matched"].append(lgb.train(
+            prm, lgb.Dataset(a[FEATS], a["y"] - a["recov"],
+                             categorical_feature=CATS),
+            num_boost_round=NUM_ROUNDS))
     out["unmatched"] = lgb.train(
         PARAMS, lgb.Dataset(b[FEATS], b["y"], categorical_feature=CATS),
-        num_boost_round=min(NUM_ROUNDS, 400)) if len(b) > 500 else None
+        num_boost_round=NUM_ROUNDS_UNMATCHED) if len(b) > 500 else None
     out["fallback"] = float(b["y"].mean()) if len(b) else float(train["y"].mean())
     return out
 
@@ -135,7 +143,8 @@ def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
     m = df["recov"].notna().to_numpy()
     if m.any():
         sub = df.loc[m, FEATS]
-        out[m] = boosters["matched"].predict(sub) + df.loc[m, "recov"].to_numpy()
+        avg = np.mean([bst.predict(sub) for bst in boosters["matched"]], axis=0)
+        out[m] = avg + df.loc[m, "recov"].to_numpy()
     if (~m).any():
         if boosters["unmatched"] is not None:
             out[~m] = boosters["unmatched"].predict(df.loc[~m, FEATS])
@@ -192,7 +201,7 @@ def main() -> None:
     print(f"\nranking-weighted GBM estimate: {mse ** 0.5:.1f}s   "
           f"(v1 511.88, v2 458.24)")
 
-    imp = pd.Series(boosters["matched"].feature_importance("gain"),
+    imp = pd.Series(boosters["matched"][0].feature_importance("gain"),
                     index=FEATS).sort_values(ascending=False)
     print("\ntop features by gain:")
     print((imp / imp.sum() * 100).head(10).round(1).to_string())
