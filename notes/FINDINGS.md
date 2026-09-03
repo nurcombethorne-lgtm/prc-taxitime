@@ -443,3 +443,36 @@ The Observable notebook broke when Observable shipped a new framework on
 resilient-kiwi is **12th of 24 at 291.59** with 8 submissions. Third place
 is 253.94, so the podium is ~37.6s away. The field has tightened
 considerably: several teams entered or improved overnight.
+
+## LTAI (Antalya): documented but absent — confirmed against the data page
+
+The official data page (dc2026/data.html) Table 1 lists **eleven**
+reporting airports including LTAI/Antalya, and states a total of
+**4,167,797 movements**.
+
+Measured on the twelve training files:
+
+  - total rows: **4,167,797** — matches the documented figure exactly, so
+    the download is complete and nothing is missing locally;
+  - distinct reporting airports (ADEP_mvt for DEP, ADES_mvt for ARR): **10**;
+  - LTAI as a reporting airport: **0 rows**;
+  - LTAI as the *other* endpoint of a route: 23,862 rows, so the ICAO code
+    is present in the data, just never as a reporting airport.
+
+Because the documented total matches a dataset that contains no Antalya
+movements, the count was evidently taken after Antalya had dropped out.
+Either Table 1 is wrong, or Antalya was intended to be included and its
+absence went unnoticed. Worth confirming with the organisers, especially
+while the July export is being regenerated — if Antalya is meant to be in
+there, the regenerated extract is the natural moment to fix it.
+
+Reporting-airport row counts (both phases, 2025 training):
+
+    EDDF 460,263   EDDM 334,657   EGLL 479,057   EHAM 495,657
+    LEBL 358,786   LEMD 423,333   LFPG 478,387   LIRF 321,208
+    LSZH 269,598   LTFM 546,851
+
+Also confirmed by the page's column descriptions: `_mvt` columns belong to
+the *reporting* airport, `ADEP_mvt` is the aerodrome of departure and
+`ADES_mvt` the aerodrome of destination — so for an ARRIVAL the reporting
+airport is `ADES_mvt`. That is the bug fixed in v7.
