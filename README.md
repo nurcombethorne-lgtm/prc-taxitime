@@ -50,11 +50,17 @@ the negative ones is recorded in [notes/FINDINGS.md](notes/FINDINGS.md).
 ## Workflow
 
 ```bash
-uv run scripts/inspect_ranking.py                 # schema / leakage audit of ranking.parquet
-uv run scripts/baseline.py                        # fit + validate + write submissions/resilient-kiwi_vN.parquet
-uv run scripts/validate_submission.py submissions/resilient-kiwi_v1.parquet
-uv run scripts/upload_submission.py submissions/resilient-kiwi_v1.parquet
+uv run scripts/features.py                    # build data/features.duckdb
+uv run scripts/model_gbm.py --dry-run         # validate only
+uv run scripts/model_gbm.py                   # + write submissions/resilient-kiwi_vN.parquet
+uv run scripts/validate_submission.py submissions/resilient-kiwi_v8.parquet
+uv run scripts/upload_submission.py submissions/resilient-kiwi_v8.parquet
 ```
+
+`model_gbm.py` is the live model. The `baseline*.py` scripts are earlier
+iterations kept for the record — their version numbers are model
+iterations and do **not** match submission numbers; see
+[REPRODUCE.md](REPRODUCE.md).
 
 `validate_submission.py` enforces the organisers' constraints (exact
 `MVT_ID_mvt` match, no missing/extra/duplicate rows, no nulls) before any
