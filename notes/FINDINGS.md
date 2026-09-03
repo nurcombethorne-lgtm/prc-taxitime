@@ -352,3 +352,39 @@ that genuinely helps everywhere else.
 | ver | approach | offline estimate | actual score |
 |-----|----------|------------------|--------------|
 | v7  | ADES_mvt fix + turnaround linkage, matched model only | 336.2s | **292.22s** |
+
+## v8: learned artifact probability + arrival queue
+
+**Calibrated classifier for p.** The mixture's `p` (probability the target
+is exactly `D`) had been a lookup binned by (airport, unmatched, D-bin),
+with the thinnest cells holding only 7-23 samples. Replacing it with a
+boosted binary classifier over the feature set gives near-perfect
+calibration on validation:
+
+| predicted p | 0.010 | 0.118 | 0.295 | 0.598 | 0.920 |
+|---|---|---|---|---|---|
+| **actual rate** | 0.008 | 0.119 | 0.300 | 0.596 | 0.922 |
+
+Calibration is the property that matters, since the mixture consumes `p`
+as a probability rather than a ranking. Trained on the feature set that
+excludes the matched-only columns (that variant also scored best).
+
+**Arrival queue.** Aircraft landed but not yet on-block compete for the
+same taxiways as a departure taxiing out. This was uncomputable until the
+ADES_mvt fix, since arrivals were attributed to their origin airport.
+Train/ranking means agree (4.63 vs 4.48) and mean taxi rises 922s -> 1037s
+across the range.
+
+Validation: all-airport 336.8 -> 334.8, stable-only 223.0 -> 220.2.
+
+| ver | approach | stable-only | actual score |
+|-----|----------|-------------|--------------|
+| v7  | turnaround linkage, binned p | 223.0s | 292.22s |
+| v8  | + calibrated p classifier, + arrival queue | 220.2s | **291.59s** |
+
+Note the transfer ratio: 2.8s of stable-metric gain produced 0.6s on the
+leaderboard. Returns are clearly diminishing at this level - the remaining
+headroom is unlikely to come from further refinements of this architecture.
+
+The model script now prints the stable-only figure alongside the headline,
+so the lesson from v7 is built into the workflow rather than remembered.

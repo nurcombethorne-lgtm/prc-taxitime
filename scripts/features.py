@@ -82,6 +82,34 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         ) WHERE mvt_id IS NOT NULL
     """)
 
+    # --- arrival queue: landed but not yet on-block ---
+    # Inbound aircraft still on the taxiways compete for the same surface as
+    # a departure taxiing out. Only computable once the movement airport is
+    # taken from ADES_mvt for arrivals. Same running-balance construction and
+    # the same both-timestamps guard as the departure queue.
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE abase AS
+        SELECT apt, mvt_time, block FROM mv
+        WHERE phase='ARR' AND mvt_time IS NOT NULL AND block IS NOT NULL
+          AND mvt_time < block
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE atab AS
+        SELECT mvt_id, q AS arr_queue FROM (
+            SELECT mvt_id, sum(delta) OVER (
+                       PARTITION BY apt ORDER BY t, delta
+                       ROWS UNBOUNDED PRECEDING) AS q
+            FROM (
+                SELECT apt, mvt_time AS t, 1 AS delta, NULL::DOUBLE AS mvt_id FROM abase
+                UNION ALL
+                SELECT apt, block, -1, NULL FROM abase
+                UNION ALL
+                SELECT apt, aobt, 0, mvt_id FROM mv
+                 WHERE phase='DEP' AND aobt IS NOT NULL
+            )
+        ) WHERE mvt_id IS NOT NULL
+    """)
+
     # --- recent throughput: one ordered stream, counted over RANGE frames ---
     frames = ",\n".join(
         f"""count(*) FILTER (WHERE kind='TKO') OVER (
@@ -196,6 +224,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
                epoch(m.mvt_time - m.aobt)  AS recov,
                epoch(m.aobt - m.eobt)      AS aobt_vs_eobt,
                coalesce(q.dep_queue, 0) AS dep_queue,
+               coalesce(aq.arr_queue, 0) AS arr_queue,
                {', '.join(f'thr.takeoff_prev{w}, thr.landing_prev{w}' for w in WINDOWS_MIN)},
                sd.sched_dep_60, nowc.arr_taxi_mean60, nowc.dep_recov_mean60,
                turn.turnaround_sec, turn.inbound_delay, turn.inbound_taxi_in,
@@ -205,6 +234,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
                extract(year FROM m.mvt_time) AS yr {ycol}
         FROM mv m
         LEFT JOIN qtab q ON q.mvt_id = m.mvt_id
+        LEFT JOIN atab aq ON aq.mvt_id = m.mvt_id
         LEFT JOIN thr   ON thr.mvt_id = m.mvt_id
         LEFT JOIN sd    ON sd.mvt_id = m.mvt_id
         LEFT JOIN nowc  ON nowc.mvt_id = m.mvt_id

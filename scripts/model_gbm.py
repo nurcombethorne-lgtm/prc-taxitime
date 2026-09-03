@@ -43,14 +43,18 @@ TOL = 60.0
 # to make on high-D rows (validation 346.9s -> 342.8s when lifted; the
 # curve saturates by 60000).
 CLIP_LO, CLIP_HI = 60.0, 90000.0
-D_EDGES = [0, 600, 1200, 1800, 2700, 3600, 5400, 7200, 10800, 14400, 21600, 43200]
+P_PARAMS = dict(objective="binary", metric="binary_logloss", learning_rate=0.05,
+                num_leaves=63, min_data_in_leaf=200, feature_fraction=0.9,
+                bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0,
+                verbose=-1, num_threads=0)
+P_ROUNDS = 300
 
 CATS = ["apt", "stand", "rwy", "actype", "wake", "operator", "segment", "ades"]
 # `unmatched` and `D` belong here even though the mixture also uses them:
 # the mixture needs E[y | NOT artifact], and that expectation genuinely
 # depends on how delayed the flight is and on whether it has an NM record
 # (unmatched non-artifact flights taxi far longer than the fleet average).
-NUMS = ["dep_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_prev60",
+NUMS = ["dep_queue", "arr_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_prev60",
         "landing_prev15", "landing_prev30", "landing_prev60",
         "sched_dep_60", "recov", "aobt_vs_eobt", "hr", "dow", "mon",
         "unmatched", "D",
@@ -82,10 +86,6 @@ NUM_ROUNDS_UNMATCHED = 800
 SEEDS = (1, 2, 3)
 
 
-def d_bin(s: pd.Series) -> pd.Series:
-    return pd.Series(np.digitize(s.fillna(-1e9), D_EDGES), index=s.index)
-
-
 def prep(df: pd.DataFrame) -> pd.DataFrame:
     for c in CATS:
         df[c] = df[c].astype("category")
@@ -93,28 +93,33 @@ def prep(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def fit_p(fit: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """p = P(target is exactly D), by (apt, unmatched, D-bin), with a
-    per-airport fallback. Deliberately not pooled across airports: the
-    scheduled-time fallback is a LIRF-specific behaviour."""
+def fit_p(fit: pd.DataFrame):
+    """P(target is exactly D), as a calibrated classifier.
+
+    This replaces a lookup binned by (airport, unmatched, D-bin), whose
+    thinnest cells held only 7-23 samples. A boosted classifier over the
+    full feature set is far better resolved and, measured on validation,
+    almost exactly calibrated (predicted 0.010/0.118/0.295/0.598/0.920 vs
+    actual 0.008/0.119/0.300/0.596/0.922). Calibration is what matters
+    here: the mixture consumes p as a probability, not as a ranking.
+
+    Trained on the feature set that excludes the matched-only columns, so
+    the unreliable turnaround reference on unmatched rows cannot mislead
+    it (that variant also scored best on validation).
+    """
     f = fit[fit["D"].notna()].copy()
-    f["db"] = d_bin(f["D"])
-    f["is_d"] = (f["y"] - f["D"]).abs().le(TOL).astype(float)
-    cell = (f.groupby(["apt", "unmatched", "db"], observed=True)
-              .agg(p=("is_d", "mean"), n=("is_d", "size")).reset_index())
-    cell = cell[cell["n"] >= 20][["apt", "unmatched", "db", "p"]]
-    apt_fb = (f.groupby(["apt", "unmatched"], observed=True)
-                .agg(p_fb=("is_d", "mean")).reset_index())
-    return cell, apt_fb
+    f["is_d"] = ((f["y"] - f["D"]).abs() <= TOL).astype(int)
+    f = prep(f)
+    return lgb.train(P_PARAMS,
+                     lgb.Dataset(f[FEATS_UNMATCHED], f["is_d"],
+                                 categorical_feature=CATS),
+                     num_boost_round=P_ROUNDS)
 
 
-def apply_p(df: pd.DataFrame, cell: pd.DataFrame, apt_fb: pd.DataFrame) -> np.ndarray:
-    d = df[["apt", "unmatched", "D"]].copy()
-    d["db"] = d_bin(d["D"])
-    d = d.merge(cell, on=["apt", "unmatched", "db"], how="left")
-    d = d.merge(apt_fb, on=["apt", "unmatched"], how="left")
-    p = d["p"].fillna(d["p_fb"]).fillna(0.0).to_numpy(copy=True)
-    p[d["D"].isna().to_numpy()] = 0.0
+def apply_p(df: pd.DataFrame, clf, _unused=None) -> np.ndarray:
+    p = clf.predict(prep(df.copy())[FEATS_UNMATCHED])
+    p = np.asarray(p, dtype=float).copy()
+    p[df["D"].isna().to_numpy()] = 0.0
     return p
 
 
@@ -179,7 +184,7 @@ def main() -> None:
     fit, val = df[~val_mask].copy(), df[val_mask].copy()
     print(f"fit {len(fit):,} / val {len(val):,}")
 
-    cell, apt_fb = fit_p(fit)
+    p_clf = fit_p(fit)
 
     art = fit["D"].notna() & (fit["y"] - fit["D"]).abs().le(TOL)
     train = prep(fit[~art].copy())
@@ -188,7 +193,7 @@ def main() -> None:
 
     valp = prep(val.copy())
     normal = predict_normal(boosters, valp)
-    pred = combine(apply_p(val, cell, apt_fb), val["D"].to_numpy(), normal)
+    pred = combine(apply_p(val, p_clf), val["D"].to_numpy(), normal)
     val["pred"] = pred
 
     # Leaderboard composition: which months each airport appears in.
@@ -199,6 +204,11 @@ def main() -> None:
 
     print(f"\n{'apt':6s} {'months':>8s} {'RMSE':>8s} {'share':>7s}")
     mse = 0.0
+    # LIRF and LFPG are dominated by a handful of corrupted records, so the
+    # headline number swings on luck. The stable-airport figure is the one to
+    # judge a feature change by: it rejected nothing that later transferred.
+    stable_w = 0.0
+    stable_mse = 0.0
     for apt, grp in mix.groupby("apt"):
         # The ranking set has a handful of spillover rows in Feb/Aug (a
         # take-off just past midnight on the 1st). Including those months
@@ -210,9 +220,13 @@ def main() -> None:
         sub = val[(val["apt"] == apt) & (val["mon"].isin(months))]
         r = float(np.sqrt(np.mean((sub["pred"] - sub["y"]) ** 2)))
         mse += w * r * r
+        if apt not in ("LIRF", "LFPG"):
+            stable_w += w
+            stable_mse += w * r * r
         print(f"{apt:6s} {str(months):>8s} {r:8.1f} {w:7.1%}")
-    print(f"\nranking-weighted GBM estimate: {mse ** 0.5:.1f}s   "
-          f"(v1 511.88, v2 458.24)")
+    print(f"\nranking-weighted estimate: {mse ** 0.5:.1f}s"
+          f"   stable-only (excl LIRF/LFPG): {(stable_mse / stable_w) ** 0.5:.1f}s")
+    print("  scored: v1 511.88  v2 458.24  v3 314.42  v4 300.48  v5 297.01  v7 292.22")
 
     imp = pd.Series(boosters["matched"][0].feature_importance("gain"),
                     index=FEATS).sort_values(ascending=False)
@@ -223,7 +237,7 @@ def main() -> None:
         return
 
     # Refit on all twelve months, predict ranking.
-    cell, apt_fb = fit_p(df)
+    p_clf = fit_p(df)
     art_all = df["D"].notna() & (df["y"] - df["D"]).abs().le(TOL)
     full = prep(df[~art_all].copy())
     boosters = fit_normal(full)
@@ -235,7 +249,7 @@ def main() -> None:
     for c in CATS:  # align category levels with training
         rkp[c] = rkp[c].cat.set_categories(full[c].cat.categories)
     normal_r = predict_normal(boosters, rkp)
-    rk["pred"] = combine(apply_p(rk, cell, apt_fb), rk["D"].to_numpy(), normal_r)
+    rk["pred"] = combine(apply_p(rk, p_clf), rk["D"].to_numpy(), normal_r)
 
     SUBMISSIONS.mkdir(exist_ok=True)
     out = SUBMISSIONS / f"{TEAM_NAME}_v{len(list(SUBMISSIONS.glob(f'{TEAM_NAME}_v*.parquet'))) + 1}.parquet"
