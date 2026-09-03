@@ -388,3 +388,58 @@ headroom is unlikely to come from further refinements of this architecture.
 
 The model script now prints the stable-only figure alongside the headline,
 so the lesson from v7 is built into the workflow rather than remembered.
+
+## Organiser announcements, 3 Sep 2026 (Discord)
+
+1. **The July submit dataset is wrong and will be regenerated.** Quoting
+   the organiser: *"regarding the submit dataset, it is incorrect for July:
+   my fault...airports didn't report yet when I initially extracted the
+   data. I am verifying the new export and will upload soonish."*
+
+   This is the dominant planning fact. When the new export lands:
+     - `submitting.parquet` gains rows, so **every existing submission
+       becomes invalid** (the validator demands an exact MVT_ID_mvt match);
+     - the July airport composition changes, which invalidates the
+       per-airport month masks the validation harness is built on
+       (currently Jul 2026 = EDDF, EGLL, EHAM only).
+
+   `scripts/check_dataset.py` compares the bucket against
+   `notes/dataset_manifest.json` and reports any change. As of 3 Sep the
+   files are all still dated 2026-08-13, i.e. not yet re-uploaded.
+
+   **Do not invest in further modelling against the current ranking set.**
+   Re-tuning now risks being wasted, and the harness weighting will change.
+
+2. **OSN state vectors are not an admissible external source** "as for
+   now" — ground truth is airport-reported timestamps, not derived from
+   on-board means. That closes off trajectory data as an avenue.
+
+3. **No submission cap yet**, though the organisers are "thinking to
+   implement a threshold soon".
+
+## The RMSE inversion issue — we are not going near it
+
+Other participants pointed out on Discord that RMSE feedback is exactly
+invertible. Submitting a vector `p`, then resubmitting with a single row
+`k` changed by δ, gives
+
+    N · (MSE' − MSE) = δ² + 2δ · (p_k − y_k)
+
+which solves for the true `y_k`. One extra submission therefore recovers
+one true target, and a binary search locates the highest-leverage rows in
+a few dozen queries. Given how much of this task's RMSE sits on a handful
+of very large taxi times, that would be worth more than any modelling.
+
+We will not use this. The brief's standing instruction is that the
+organisers warn against exploiting the ranking process, and recovering
+ground-truth labels through the scoring endpoint is precisely that. Our
+eight submissions are all genuine model outputs.
+
+## Live standings, 3 Sep 2026 (via API, notebook is broken)
+
+The Observable notebook broke when Observable shipped a new framework on
+1 Sep. `scripts/leaderboard.py` reads the underlying API instead.
+
+resilient-kiwi is **12th of 24 at 291.59** with 8 submissions. Third place
+is 253.94, so the podium is ~37.6s away. The field has tightened
+considerably: several teams entered or improved overnight.

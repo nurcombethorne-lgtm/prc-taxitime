@@ -1,0 +1,72 @@
+{
+  "ranking.parquet": {
+    "etag": "6441d1f6834e81dbb4dfebb81eaa7326",
+    "modified": "2026-08-13 22:51:23",
+    "size": 28002147
+  },
+  "submitting.parquet": {
+    "etag": "77c941430081c095df2d7cad71855379",
+    "modified": "2026-08-13 08:07:40",
+    "size": 1152346
+  },
+  "training_2025-01-01_2025-02-01.parquet": {
+    "etag": "a7a06335eba1fb819d7a857e8136abd8-2",
+    "modified": "2026-08-13 08:06:57",
+    "size": 21218481
+  },
+  "training_2025-02-01_2025-03-01.parquet": {
+    "etag": "382843b77d872aafad391e9d72e69b38-2",
+    "modified": "2026-08-13 08:06:59",
+    "size": 19824510
+  },
+  "training_2025-03-01_2025-04-01.parquet": {
+    "etag": "9f997f4faae04635a30f8e38d948c47f-2",
+    "modified": "2026-08-13 08:07:00",
+    "size": 22606072
+  },
+  "training_2025-04-01_2025-05-01.parquet": {
+    "etag": "4b57475a40bddde3231935db373d4722-2",
+    "modified": "2026-08-13 08:06:46",
+    "size": 23840340
+  },
+  "training_2025-05-01_2025-06-01.parquet": {
+    "etag": "0064f01f3ad2686a41eecd3db8b6337f-2",
+    "modified": "2026-08-13 08:06:49",
+    "size": 25187756
+  },
+  "training_2025-06-01_2025-07-01.parquet": {
+    "etag": "8c2e639482725e31c6401e8f643813c9-2",
+    "modified": "2026-08-13 08:06:56",
+    "size": 24991697
+  },
+  "training_2025-07-01_2025-08-01.parquet": {
+    "etag": "79ff9ed041cf1937b4f9c55ca3e2513e-2",
+    "modified": "2026-08-13 08:06:43",
+    "size": 26014977
+  },
+  "training_2025-08-01_2025-09-01.parquet": {
+    "etag": "27c4e39f8035f0b6fc8e74287cbcb181-2",
+    "modified": "2026-08-13 08:06:58",
+    "size": 25969246
+  },
+  "training_2025-09-01_2025-10-01.parquet": {
+    "etag": "7693c7f704fa2ef6755a8dd7dee90a04-2",
+    "modified": "2026-08-13 08:06:41",
+    "size": 25102673
+  },
+  "training_2025-10-01_2025-11-01.parquet": {
+    "etag": "75e571814153dc15b921b528bb5df105-2",
+    "modified": "2026-08-13 08:06:58",
+    "size": 25392098
+  },
+  "training_2025-11-01_2025-12-01.parquet": {
+    "etag": "491d4b08b10237a723c447f6b4f1bd60-2",
+    "modified": "2026-08-13 08:06:25",
+    "size": 22173840
+  },
+  "training_2025-12-01_2026-01-01.parquet": {
+    "etag": "251424006e8a625d2a8aa3bd3f5036a2-2",
+    "modified": "2026-08-13 08:06:57",
+    "size": 22653598
+  }
+}
