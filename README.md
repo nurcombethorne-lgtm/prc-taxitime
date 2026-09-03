@@ -43,6 +43,10 @@ different host from `s3.opensky-network.org:9443`, which is unreachable;
 `scripts/sts_login.py` is a token-based fallback kept only for the case
 where the console itself is down.
 
+Full reproduction instructions, the model description and a script
+inventory are in **[REPRODUCE.md](REPRODUCE.md)**; every result including
+the negative ones is recorded in [notes/FINDINGS.md](notes/FINDINGS.md).
+
 ## Workflow
 
 ```bash
@@ -58,14 +62,32 @@ upload; `upload_submission.py` refuses to upload unless it passes.
 
 ## Approach
 
-1. **Baseline (week 1):** hierarchical median taxi-out by
-   airport × stand × runway with fallback to airport × runway → airport →
-   global. Locks in a score early — best submission counts, not the last.
-2. **Unimpeded taxi time:** empirical unimpeded reference per
-   airport/stand/runway, mirroring the PRC "additional taxi-out time"
-   methodology.
-3. **Congestion features:** departure queue size — aircraft off-block and
-   not yet airborne at the same airport in the preceding window.
-4. **Per-airport models** — Antalya and Zurich are different problems.
-5. **Validation on Jan + Jul 2025** specifically (the ranking months'
-   seasons), never a random split.
+The target is exactly `take-off - off-block`, and off-block is blanked for
+departures in the ranking set while take-off is not. On a subset of
+movements the recorded block time is a fallback to the *scheduled* time
+rather than a captured pushback, which makes the target exactly
+`take-off - scheduled` — an observable quantity. The target is therefore a
+mixture, predicted as
+
+    pred = p * D + (1 - p) * normal
+
+with `p` a calibrated classifier for that regime and `normal` a
+gradient-boosted model over congestion, turnaround and timing features.
+See [REPRODUCE.md](REPRODUCE.md) for the full description.
+
+Validation fits on ten months of 2025 and scores January and July 2025,
+with each airport scored only on the months it actually appears in within
+the ranking set, weighted by its share of ranking rows.
+
+### Scores
+
+| ver | change | RMSE |
+|-----|--------|------|
+| v1 | per-airport direct/offset hybrid over group means | 511.88 |
+| v2 | scheduled-fallback mixture | 458.24 |
+| v3 | LightGBM over congestion features; corrected validation | 314.42 |
+| v4 | residual target `y - recov` | 300.48 |
+| v5 | raised the prediction ceiling | 297.01 |
+| v6 | hyperparameter tuning (did not transfer) | 297.24 |
+| v7 | turnaround linkage + arrival-airport fix | 292.22 |
+| v8 | calibrated probability classifier + arrival queue | **291.59** |
