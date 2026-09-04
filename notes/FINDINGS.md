@@ -579,3 +579,50 @@ variance: among flights that look equally risky, only some actually go
 long, and nothing observable separates them. Those 26 rows carry 37% of
 validation squared error and cannot be improved by better modelling of
 this feature set.
+
+## The regenerated dataset, 4 Sep 2026 — everything resets
+
+The organisers re-issued the ranking and submitting files (the July
+extract had been taken before some airports reported).
+
+| | old | new |
+|---|---|---|
+| ranking.parquet | 28.0 MB | 43.6 MB |
+| submitting.parquet | 1.15 MB | 1.68 MB |
+| scored departures | 215,876 | **344,841** |
+| January share | 70.7% | 44.3% |
+| July share | 29.3% | **55.7%** |
+| airports in July | EDDF, EGLL, EHAM only | **all ten** |
+
+LTAI/Antalya is still **absent as a reporting airport** in the new export
+(it appears 3,496 times only as the other end of a route), so the eleven
+airports in Table 1 remain wrong and our Discord question stands.
+
+**Scores across the change are not comparable.** July is both the majority
+of the new set and the harder month. Another team reported the same model
+scoring 278.38 on the old set and 326.60 on the new — a ~48s step that
+says nothing about model quality. Because the board ranks on
+best-across-submissions, teams keep an old-set best that is no longer
+achievable, so the public table currently mixes two incomparable scales.
+
+The harness needed no rework: it derives each airport's month mask and
+weight from the ranking file itself, so it picked up the new composition
+automatically. Validation moved 334.8 -> 356.8s purely from reweighting.
+
+| ver | test set | offline estimate | actual score |
+|-----|----------|------------------|--------------|
+| v8  | old (215,876) | 334.8s | 291.59s |
+| v9  | **new (344,841)** | 356.8s | **321.89s** |
+
+**Like-for-like standing.** Filtering the leaderboard API to submissions
+processed after the changeover gives a true new-set table. Of 733 total
+submissions only 27 have been scored against the new truth so far:
+
+     1 enthusiastic-daisy  277.29      4 intelligent-ladder  309.85
+     2 upbeat-goblin       279.37      5 generous-jungle     312.76
+     3 quick-boat          279.98      6 resilient-kiwi      321.89
+     7 vibrant-jewel       326.60      8 reliable-hamburger  343.31
+
+**6th of 17 on comparable numbers**, 41.9s off third. The mixed public
+board showing us 14th of 37 is an artefact of most teams not having
+resubmitted yet.

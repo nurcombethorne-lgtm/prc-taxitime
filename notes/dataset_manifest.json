@@ -1,13 +1,13 @@
 {
   "ranking.parquet": {
-    "etag": "6441d1f6834e81dbb4dfebb81eaa7326",
-    "modified": "2026-08-13 22:51:23",
-    "size": 28002147
+    "etag": "838b6c57f7c3c6b491a169c0c1516d55-3",
+    "modified": "2026-09-04 08:30:40",
+    "size": 43564605
   },
   "submitting.parquet": {
-    "etag": "77c941430081c095df2d7cad71855379",
-    "modified": "2026-08-13 08:07:40",
-    "size": 1152346
+    "etag": "03044267cf6c774914ae275dfd29d0e0",
+    "modified": "2026-09-04 08:27:23",
+    "size": 1677097
   },
   "training_2025-01-01_2025-02-01.parquet": {
     "etag": "a7a06335eba1fb819d7a857e8136abd8-2",
