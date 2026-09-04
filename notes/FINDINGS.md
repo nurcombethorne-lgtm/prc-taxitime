@@ -491,3 +491,43 @@ client because of a bug in the Minio web UI — our boto3 path is unaffected.
 This makes the "only submit changes with a mechanism" rule a hard
 constraint rather than a preference. Offline evaluation on the
 stable-airport metric decides what is worth one of the three.
+
+## Three architecture experiments, 4 Sep — all negative
+
+Measured on the stable-airport metric (v8 baseline: 221.1s).
+
+**Per-airport matched models: worse (224.3s).** Ten separate models lose
+more to reduced sample size than they gain from specialisation; the global
+model with `apt` as a categorical already separates airports while sharing
+statistical strength across them. The original plan's instinct that
+"Zurich and Istanbul are different problems" is true of the *data* but not
+of the *estimator*.
+
+**Out-of-fold target encoding: no effect (221.0s).** Smoothed OOF mean
+encodings of (apt, stand, rwy), (apt, stand) and (apt, rwy, hour) on the
+residual target added nothing over LightGBM's native categorical handling.
+
+**Domain-shift correction from arrival taxi times: mechanism fails.**
+Arrivals are unblanked in the ranking set, so 2026 taxi-in times are real
+ground truth, and they show large shifts against the same months of 2025:
+
+    EHAM Jan +66.9s (+11.3%)   EHAM Jul -69.8s (-14.6%)
+    EDDF Jul -66.6s (-11.0%)   LIRF Jan -43.1s (-6.8%)
+    LSZH Jan +35.0s (+10.3%)
+
+Tempting: correct departure predictions by the shift measured on arrivals.
+But testing the transfer month-to-month within 2025 (120 airport-months)
+gives **r = 0.039** overall — no reliable relationship. Per airport it
+splits both ways: EDDF +0.72, LEMD +0.89, LFPG +0.66, LIRF +0.55, EGLL
++0.51, but EHAM **-0.43**, EDDM -0.27, LTFM -0.16, LSZH -0.15.
+
+EHAM is where the largest 2026 shift sits *and* where the correlation is
+most strongly negative, so an arrival-based correction would most likely
+have made our worst-shifted airport worse. Worth recording as a case where
+a plausible mechanism was checked before use and did not survive.
+
+**Assessment.** The mixture + GBM architecture looks close to its ceiling
+on this feature set. Remaining error is concentrated in corrupted records
+we have shown to be unpredictable from anything observable. Further gains
+need either a new information source or a different problem framing, not
+more refinement of this one.
