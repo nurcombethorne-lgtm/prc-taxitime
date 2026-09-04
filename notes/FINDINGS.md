@@ -531,3 +531,51 @@ on this feature set. Remaining error is concentrated in corrupted records
 we have shown to be unpredictable from anything observable. Further gains
 need either a new information source or a different problem framing, not
 more refinement of this one.
+
+## The extremes, properly analysed (4 Sep) — correcting an earlier claim
+
+Earlier notes said the extreme taxi times are "unpredictable". That was
+wrong as stated, and the correct version matters.
+
+**They are highly identifiable.** A classifier for `y > 3600s` over the
+existing features scores **AUC 0.979**, and its top 1% by predicted risk
+contains 72.5% of all such flights. For `y > 1800s`, AUC 0.964; for
+`y > 7200s`, AUC 0.880. So the model can see which flights are at risk.
+
+**And the model already exploits it.** Calibration measured on our own
+predictions — the valid conditioning, since predictions are a function of
+the observables:
+
+    top 0.05%  mean_pred 13348  mean_y 13135  bias  +213
+    top 0.10%  mean_pred  9312  mean_y  8682  bias  +630
+    top 0.50%  mean_pred  4486  mean_y  4223  bias  +262
+    top 1.00%  mean_pred  3479  mean_y  3361  bias  +118
+    overall                                   bias    +5.2
+
+We slightly *over*-predict in the far tail, so there is no under-prediction
+to correct. Removing the residual tail bias entirely is worth well under
+1s of RMSE — not worth one of three daily submissions.
+
+**A trap worth recording.** Grouping the same residuals by *true* y looks
+alarming:
+
+    true y band     n        mean_pred   mean_y   % sq err
+    <30m            328,620      970       942      37.5
+    30-60m           14,641     1839      2227      13.2
+    1-2h                833     3195      4573       7.2
+    2-5.5h              122     7284     10112       5.0
+    >5.5h                26    39027     50925      37.2
+
+It appears we over-predict ordinary flights by 28s and under-predict the
+26 worst by ~11,900s. That is **regression to the mean, not a fixable
+bias**: conditioning on the outcome induces exactly this pattern even for
+a perfectly calibrated model. Only conditioning on predictions (above)
+tests calibration honestly, and by that test the model is sound.
+
+**Conclusion, with better reasoning than before.** The extremes are not
+invisible — they are identified about as well as the observables allow,
+and priced into the conditional mean. What is left is genuine outcome
+variance: among flights that look equally risky, only some actually go
+long, and nothing observable separates them. Those 26 rows carry 37% of
+validation squared error and cannot be improved by better modelling of
+this feature set.
