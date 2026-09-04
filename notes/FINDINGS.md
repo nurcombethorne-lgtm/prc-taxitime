@@ -476,3 +476,18 @@ Also confirmed by the page's column descriptions: `_mvt` columns belong to
 the *reporting* airport, `ADEP_mvt` is the aerodrome of departure and
 `ADES_mvt` the aerodrome of destination — so for an ARRIVAL the reporting
 airport is `ADES_mvt`. That is the bug fixed in v7.
+
+## Submission cap introduced, 4 Sep 2026
+
+Organiser (John Fitzgerald): **3 submissions per day**, resetting at
+00:00 UTC. Over the limit the result file returns
+
+    {"status": "Rejected", "error_type": "DAILY_LIMIT_REACHED"}
+
+Also: bucket size capped at 1 GB, and deleting submissions from the bucket
+does not affect the leaderboard. Uploads must go through the Minio `mc`
+client because of a bug in the Minio web UI — our boto3 path is unaffected.
+
+This makes the "only submit changes with a mechanism" rule a hard
+constraint rather than a preference. Offline evaluation on the
+stable-airport metric decides what is worth one of the three.
