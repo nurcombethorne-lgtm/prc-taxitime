@@ -58,6 +58,11 @@ NUMS = ["dep_queue", "arr_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_p
         "landing_prev15", "landing_prev30", "landing_prev60",
         "sched_dep_60", "recov", "aobt_vs_eobt", "hr", "dow", "mon",
         "unmatched", "D",
+        # METAR-derived conditions (IEM archive). De-icing weather roughly
+        # doubles mean taxi-out and is invisible in the movement/flight
+        # tables. Available for every row, so both models get them.
+        "wx_temp_c", "wx_vis_mi", "wx_wind_kt", "wx_precip_in", "wx_spread_c",
+        "wx_cold", "wx_deice_risk", "wx_lowvis", "wx_snow", "wx_freezing",
         # Arrival-derived features are meaningful only after the ADES_mvt fix
         # in features.py; before it they bucketed arrivals by origin airport.
         "arr_taxi_mean60", "dep_recov_mean60",
@@ -177,7 +182,9 @@ def main() -> None:
     args = ap.parse_args()
 
     con = duckdb.connect(str(DB), read_only=True)
-    df = con.sql("SELECT * FROM train_feat WHERE y IS NOT NULL AND y > 0").df()
+    df = con.sql("""SELECT t.*, w.* EXCLUDE (mvt_id)
+                    FROM train_feat t LEFT JOIN wx w USING (mvt_id)
+                    WHERE t.y IS NOT NULL AND t.y > 0""").df()
     con.close()
 
     val_mask = df["mon"].isin([1, 7]) & (df["yr"] == 2025)
@@ -243,7 +250,8 @@ def main() -> None:
     boosters = fit_normal(full)
 
     con = duckdb.connect(str(DB), read_only=True)
-    rk = con.sql("SELECT * FROM rank_feat").df()
+    rk = con.sql("""SELECT r.*, w.* EXCLUDE (mvt_id)
+                    FROM rank_feat r LEFT JOIN wx w USING (mvt_id)""").df()
     con.close()
     rkp = prep(rk.copy())
     for c in CATS:  # align category levels with training

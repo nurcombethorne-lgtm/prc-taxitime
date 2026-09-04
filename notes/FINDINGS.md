@@ -626,3 +626,60 @@ submissions only 27 have been scored against the new truth so far:
 **6th of 17 on comparable numbers**, 41.9s off third. The mixed public
 board showing us 14th of 37 is an artefact of most teams not having
 resubmitted yet.
+
+## Weather (METAR) — the one external source that paid off
+
+Source: Iowa Environmental Mesonet ASOS/METAR archive (Iowa State
+University), open and freely redistributable, fetched by
+`scripts/fetch_weather.py` — 277,489 observations across the ten airports,
+2025-01-01 to 2026-08-01. Not OpenSky-derived, so unaffected by the
+organisers' ruling on state vectors. `scripts/weather_features.py` joins
+each departure (ASOF, at its own airport, observation within 90 minutes)
+and derives temperature, visibility, wind, precipitation and flags for
+de-icing risk, low visibility, snow and freezing. Match rate 100.0%.
+
+**The marginal signal is large:**
+
+    regime            n         mean taxi
+    de-icing risk     8,347     1,675s
+    low visibility   22,111     1,073s
+    benign        1,683,032       978s
+
+**But most of it is already in `recov`.** Conditioning on both shows the
+flight's own observed taxi (`recov = take-off - AOBT_3_flt`) already
+carries the de-icing time; only the residual gap is new information:
+
+    regime            mean y   mean recov   gap
+    de-icing risk      1600       1368      +232
+    low visibility     1067       1014       +54
+    benign              978       1002       -24
+
+**And validation said it was worthless**: all-airport 356.8 -> 358.1,
+stable-only 229.8 -> 228.6, i.e. ~1s, below the noise floor.
+
+**The composition argument overrode the metric.** De-icing weather is far
+more common in the scored set than in our validation months:
+
+    validation (Jan+Jul 2025)   0.68%
+    ranking set 2026            1.96%
+    ranking January 2026        4.42%
+
+January 2026 was a severe winter — consistent with Schiphol's own report of
+several thousand weather cancellations, cited on Discord. Our validation
+therefore contains roughly **3x less** of the condition than the set we are
+scored on, so it structurally understates the feature's value, and a model
+without weather cannot adapt to that shift at all.
+
+Submitted on the mechanism rather than the metric, and the arithmetic held:
+
+| ver | change | validation | actual |
+|-----|--------|-----------|--------|
+| v9  | new dataset, no weather | 356.8s | 321.89s |
+| v10 | + METAR features | 356.4s | **318.06s** |
+
+Validation predicted ~0.4s; the leaderboard gave **3.8s**, about the 3x
+ratio the prevalence gap implied.
+
+**Lesson to keep**: when the validation set's composition differs from the
+scored set on the very variable a feature describes, the validation gain is
+the wrong estimator. Check prevalence in both before discarding a feature.
