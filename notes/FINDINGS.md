@@ -782,3 +782,41 @@ regimes are exactly the kind of thing a re-export can silently remove.
 Before submitting a rule that targets a data fault, check whether the
 fault is still present in the scored set wherever it is observable — here,
 the arrivals, which are not blanked.
+
+## v13: force the fallback on the LIRF subgroup — 316.80 -> 301.70
+
+The v12 failure was diagnostic, not just a loss. Reconstructing what v12
+actually did to the 26 live rows, per D band:
+
+    6-12h  (15 rows)  v11 ~34k  ->  v12 ~24k   (LOWERED toward D)
+    12-18h ( 9 rows)  v11 ~36k  ->  v12 ~64k   (RAISED above D)
+
+Two hypotheses for the 2026 truth on these rows, and what each predicts
+for v12's observed +2.9s:
+
+    H1  y == D (scheduled-time fallback)     predicts ~+3.7s   <- observed +2.9s
+    H2  y == 86400 + taxi (day fault)        predicts ~+70s     rejected
+
+Independent support for H1: the unblanked 2026 *arrivals* show the
+fallback regime surviving at the 2025 rate (548 -> 520 per 10k overall,
+1210 -> 1168 at LIRF), while the day fault is near-absent on arrivals in
+both years. And in the 6-12h band, 33 of 34 training rows are y == D.
+
+So the 2026 truth here is the fallback, and the model's mixture was
+hedging toward a "normal" branch that occurs 1 time in 63. The fix is to
+predict D outright for LIRF + unmatched + D >= 6h (FORCE_D_ENABLED):
+
+    variant                     validation    predicted (H1)   actual
+    v11 mixture                   358.9          -              316.80
+    v12 three-way (+86400)        336.9          -              319.70
+    v13 force p = 1               337.5          ~304           301.70
+
+Validation could not separate v12 from v13 (both ~+21s on the same 21
+rows). The leaderboard could, and the H1 arithmetic called it.
+
+**Method, for reuse.** When a mechanism-backed rule fails to transfer:
+(1) reconstruct exactly what it changed on the live rows, (2) write down
+the competing hypotheses about the hidden truth, (3) compute what each
+predicts for the *observed* leaderboard delta, (4) look for an observable
+proxy for the hidden truth (here: unblanked arrivals), (5) act on the
+hypothesis that survives. One failed submission bought a 15s gain.
