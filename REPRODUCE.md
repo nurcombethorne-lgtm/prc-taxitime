@@ -1,7 +1,9 @@
 # Reproducing the submission
 
-This reproduces `resilient-kiwi_v8.parquet`, our best scoring submission
-(RMSE **291.59** on the challenge leaderboard).
+This reproduces `resilient-kiwi_v13.parquet`, our best scoring submission
+(RMSE **301.70** on the regenerated 344,841-row ranking set issued on
+4 Sep 2026). Scores from before that re-issue (v1-v8, best 291.59) were
+against a smaller, easier test set and are not comparable.
 
 ## 1. Environment
 
@@ -47,6 +49,8 @@ Re-runs skip files already present at the right size.
 
 ```bash
 uv run scripts/features.py                    # ~5 min -> data/features.duckdb
+uv run scripts/fetch_weather.py               # METAR history, ~16 MB -> data/weather/
+uv run scripts/weather_features.py            # joins weather onto features.duckdb
 uv run scripts/model_gbm.py --dry-run         # validation only
 uv run scripts/model_gbm.py                   # + writes submissions/resilient-kiwi_vN.parquet
 uv run scripts/validate_submission.py submissions/resilient-kiwi_vN.parquet
@@ -91,6 +95,21 @@ the RMSE-optimal prediction is its mean:
   unmatched flights have no `recov` and get their own model on the raw
   target.
 
+* **Weather** — METAR observations from the Iowa Environmental Mesonet
+  archive (open), ASOF-joined at each airport within 90 minutes:
+  temperature, visibility, wind, precipitation, and flags for de-icing
+  risk, low visibility, snow and freezing, plus cumulative measures
+  (precipitation over 6h/12h, fraction of the last 6h in de-icing
+  conditions, hours since the airfield was last above freezing). De-icing
+  weather is far more common in the 2026 ranking months than in the 2025
+  validation months, which is why these transfer better than validation
+  suggests.
+* **LIRF fallback rule** — for LIRF departures with no NM record whose
+  take-off is 6h or more past schedule, predict `D` outright
+  (`FORCE_D_ENABLED`). In that subgroup the target is almost never a
+  normal taxi (1 of 63 training rows); it is the scheduled-time fallback,
+  which the unblanked 2026 arrivals show surviving at the 2025 rate.
+
 Predictions are clipped to [60, 90000] seconds — the ceiling accommodates
 a known data fault that puts block time a day early, yielding genuine
 targets just above 86,400 s.
@@ -121,7 +140,11 @@ Live pipeline:
 | `s3util.py` | S3/MinIO client and paths, reads `.env` |
 | `fetch_data.py` | download the datasets |
 | `features.py` | build `data/features.duckdb` |
-| `model_gbm.py` | **the model** — produced submissions v3 through v8 |
+| `fetch_weather.py` | download METAR history for the ten airports (IEM archive) |
+| `weather_features.py` | join weather onto the feature set (`wx` table) |
+| `model_gbm.py` | **the model** — produced submissions v3 through v13 |
+| `check_dataset.py` | detect a re-issued competition dataset |
+| `leaderboard.py` | read standings from the API (the public notebook is broken) |
 | `validate_submission.py` | enforce the organisers' row constraints |
 | `upload_submission.py` | validator-gated upload |
 

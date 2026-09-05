@@ -96,4 +96,16 @@ the ranking set, weighted by its share of ranking rows.
 | v5 | raised the prediction ceiling | 297.01 |
 | v6 | hyperparameter tuning (did not transfer) | 297.24 |
 | v7 | turnaround linkage + arrival-airport fix | 292.22 |
-| v8 | calibrated probability classifier + arrival queue | **291.59** |
+| v8 | calibrated probability classifier + arrival queue | 291.59 |
+
+The ranking set was re-issued on 4 Sep 2026 (344,841 departures, July now
+56% of the set and all ten airports); scores below are on the new set and
+are not comparable with those above.
+
+| ver | change | RMSE |
+|-----|--------|------|
+| v9 | v8 model on the regenerated set | 321.89 |
+| v10 | METAR weather features | 318.06 |
+| v11 | cumulative de-icing features | 316.80 |
+| v12 | LIRF day-fault three-way rule (did not transfer, reverted) | 319.70 |
+| v13 | predict the scheduled-time fallback outright on the LIRF subgroup | **301.70** |
