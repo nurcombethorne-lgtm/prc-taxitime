@@ -2,9 +2,11 @@
 
 Team **resilient-kiwi** — WPTG.ai (White Pearl Technology Group AB, Sweden).
 
-Predicts taxi-out time (seconds) for departures at 11 European airports
-(EDDF EDDM EGLL EHAM LEBL LEMD LFPG LIRF LTAI LTFM LSZH), scored on RMSE
-against January and July 2026 movements.
+Predicts taxi-out time (seconds) for departures at ten European airports
+(EDDF EDDM EGLL EHAM LEBL LEMD LFPG LIRF LSZH LTFM), scored on RMSE
+against January and July 2026 movements. The challenge documentation lists
+an eleventh, LTAI (Antalya), but it does not appear as a reporting airport
+in any of the data (see `notes/FINDINGS.md`).
 
 Licensed under **GPLv3** (see `LICENSE`), as required by the challenge
 prize conditions. All external data used is open and documented below.
@@ -22,8 +24,15 @@ All competition data comes from the OpenSky Network MinIO store at
 Column suffixes: `_mvt` = airport movement records, `_flt` = Network
 Manager flight list. The data is messy and unreconciled by design.
 
-No other external datasets are currently used. Any added later will be
-listed here with source and licence.
+### External data
+
+**METAR observations** for the ten airports, 2025-01-01 to 2026-08-01,
+from the Iowa Environmental Mesonet ASOS/METAR archive (Iowa State
+University, https://mesonet.agron.iastate.edu/request/download.phtml) —
+an open, freely redistributable archive of routine aerodrome weather
+reports. Fetched by `scripts/fetch_weather.py` into `data/weather/`
+(gitignored, ~16 MB). No OpenSky state-vector data is used; the organisers
+ruled it inadmissible on 3 Sep 2026.
 
 ## Setup
 
@@ -51,10 +60,12 @@ the negative ones is recorded in [notes/FINDINGS.md](notes/FINDINGS.md).
 
 ```bash
 uv run scripts/features.py                    # build data/features.duckdb
+uv run scripts/fetch_weather.py               # METAR history -> data/weather/
+uv run scripts/weather_features.py            # join weather onto features.duckdb
 uv run scripts/model_gbm.py --dry-run         # validate only
 uv run scripts/model_gbm.py                   # + write submissions/resilient-kiwi_vN.parquet
-uv run scripts/validate_submission.py submissions/resilient-kiwi_v8.parquet
-uv run scripts/upload_submission.py submissions/resilient-kiwi_v8.parquet
+uv run scripts/validate_submission.py submissions/resilient-kiwi_v13.parquet
+uv run scripts/upload_submission.py submissions/resilient-kiwi_v13.parquet
 ```
 
 `model_gbm.py` is the live model. The `baseline*.py` scripts are earlier

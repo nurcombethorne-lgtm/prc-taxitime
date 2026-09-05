@@ -122,11 +122,18 @@ AOBT-derived timing columns that dominate the model.
 ## 6. Validation
 
 Fit on ten months of 2025, score January and July 2025. Each airport is
-scored **only on the months it appears in within the ranking set**
-(January 2026 covers all ten airports; July 2026 covers only EDDF, EGLL
-and EHAM), then weighted by its share of ranking rows. Scoring every
-airport on both months flatters the seven that the leaderboard sees only
-in winter.
+scored **only on the months it appears in within the ranking set**, then
+weighted by its share of ranking rows. Both are read from the ranking file
+itself, so the harness adapts to re-issues without code changes: the
+original extract had July for EDDF, EGLL and EHAM only, and the 4 Sep 2026
+re-issue has July for all ten airports at 56% of the set.
+
+Two caveats the notes explain in full. The headline estimate swings on a
+handful of corrupted records at LIRF and LFPG, so judge changes by the
+stable-only figure. And when a feature's driving condition occurs at a
+different rate in the validation months than in the scored months (as
+de-icing weather does), the raw validation gain misestimates transfer —
+check prevalence in both.
 
 ## 7. Script inventory
 
