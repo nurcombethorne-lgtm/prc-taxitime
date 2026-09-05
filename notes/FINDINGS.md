@@ -731,3 +731,54 @@ of feature.
 Weather total: 321.89 -> 316.80, i.e. **5.1s** from one open external
 source. Diminishing within the source, as expected — the instantaneous
 flags took most of it.
+
+## Oracle analysis, and the day-fault rule that did not transfer (5 Sep)
+
+**What the oracle said.** Replacing parts of the prediction with perfect
+knowledge, on validation:
+
+    know exactly which rows are y == D            -7.0s  (worse)
+    know the 24h day-fault rows exactly          +56.2s   (7 rows!)
+    know every y > 2h row exactly                +91.2s   (148 rows)
+
+So the scheduled-time fallback is fully exploited already, and the whole
+remaining prize sits in a few hundred extreme rows — seven of them worth
+56s on their own. A 40s between-team gap on a shared truth set can only
+come from detecting rows like these.
+
+**The signature.** Pulling every timestamp on the 15 training day-fault
+rows: 14 of 15 have no NM record, and 12 of 15 took off 14-26 hours after
+schedule with the schedule dated the previous day. `y - 86400` is 602-1992s
+on every one — a real taxi. The block stamp is the genuine pushback dated
+a day early. Among LIRF unmatched departures with D >= 6h (63 training
+rows) the outcome is almost never a normal taxi: it is y == D or
+y == 86400 + taxi. Our mixture's (1-p)*normal branch was therefore wrong
+there by tens of thousands of seconds.
+
+**The rule.** Three-way mixture for that subgroup, shares per D band
+estimated on fit months: q*D + r*(86400 + normal) + (1-q-r)*normal.
+Validation: 357.4 -> 336.9s (-20.5s), LIRF 762 -> 643.
+
+**It did not transfer.** v12 scored 319.70 against v11's 316.80: +2.9s
+worse, on 26 affected ranking rows. The only consistent reading is that the
+regenerated 2026 extract does not carry the day fault on these rows at the
+2025 rate — plausibly cleaned in the re-export, or simply rarer that year —
+so the 86400 branch overshoots rows whose truth is D or normal. A single
+wrongly-inflated row costs ~15s here, so the rule is all-or-nothing.
+
+Reverted (DAY_FAULT_ENABLED = False); code kept for the record.
+
+| ver | change | validation | actual |
+|-----|--------|-----------|--------|
+| v11 | cumulative weather | 357.4s | **316.80s** |
+| v12 | + LIRF day-fault three-way mixture | 336.9s | 319.70s (reverted) |
+
+**Lesson, the mirror image of the weather one.** The prevalence-adjusted
+estimator cuts both ways. Weather transferred because its driving
+condition was *more* common in the scored set than in validation. The day
+fault failed because its driving condition was evidently *less* common —
+and a rule estimated on 41 rows has no way to know which. Corrupted-record
+regimes are exactly the kind of thing a re-export can silently remove.
+Before submitting a rule that targets a data fault, check whether the
+fault is still present in the scored set wherever it is observable — here,
+the arrivals, which are not blanked.

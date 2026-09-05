@@ -139,6 +139,63 @@ def combine(p: np.ndarray, D: np.ndarray, normal: np.ndarray) -> np.ndarray:
     return np.clip(p * Ds + (1 - p) * normal, CLIP_LO, CLIP_HI)
 
 
+# --- LIRF day-fault rule -------------------------------------------------
+# A second corrupted regime, distinct from the scheduled-time fallback: the
+# block stamp is the genuine pushback but dated a day early, so
+#     y == 86400 + (a normal taxi)
+# It is confined to LIRF movements with no NM record whose take-off is many
+# hours past schedule. In that subgroup the outcome is almost never a normal
+# taxi: it is either exactly D (the fallback) or 86400 + taxi (the day
+# fault). The mixture's (1 - p) * normal branch was therefore wrong there by
+# tens of thousands of seconds. The oracle analysis put ~56s of validation
+# RMSE in a handful of these rows.
+DAY_FAULT_APT = "LIRF"
+DAY_FAULT_EDGES = [6 * 3600, 12 * 3600, 18 * 3600, 30 * 3600, float("inf")]
+DAY_FAULT_SMOOTH = 5     # shrink thin bands toward the pooled shares
+# Disabled: validated at -20.5s but scored +2.9s WORSE on the leaderboard
+# (v12 319.70 vs v11 316.80). The 2026 extract evidently does not carry the
+# day fault at the 2025 rate on these rows, so the 86400 branch overshoots.
+# Kept for the record; see notes/FINDINGS.md.
+DAY_FAULT_ENABLED = False
+
+
+def _day_fault_mask(df: pd.DataFrame) -> np.ndarray:
+    return ((df["apt"].astype(str) == DAY_FAULT_APT)
+            & df["unmatched"].astype(bool)
+            & (df["D"] >= DAY_FAULT_EDGES[0])).to_numpy()
+
+
+def fit_day_fault(fit: pd.DataFrame) -> list[tuple[float, float]]:
+    """Per-D-band shares (q = P[y==D], r = P[y==86400+taxi]) on fit rows."""
+    m = _day_fault_mask(fit)
+    f = fit[m]
+    is_d = ((f["y"] - f["D"]).abs() <= TOL)
+    is_24 = ((f["y"] - 86400).abs() < 3600) & ~is_d
+    q0, r0 = float(is_d.mean()), float(is_24.mean())
+    out = []
+    for lo, hi in zip(DAY_FAULT_EDGES[:-1], DAY_FAULT_EDGES[1:]):
+        b = (f["D"] >= lo) & (f["D"] < hi)
+        n = int(b.sum())
+        q = (is_d[b].sum() + DAY_FAULT_SMOOTH * q0) / (n + DAY_FAULT_SMOOTH)
+        r = (is_24[b].sum() + DAY_FAULT_SMOOTH * r0) / (n + DAY_FAULT_SMOOTH)
+        out.append((float(q), float(r)))
+    return out
+
+
+def apply_day_fault(pred: np.ndarray, df: pd.DataFrame, D: np.ndarray,
+                    normal: np.ndarray, shares) -> np.ndarray:
+    m = _day_fault_mask(df)
+    if not DAY_FAULT_ENABLED or not m.any():
+        return pred
+    out = pred.copy()
+    band = np.digitize(D, DAY_FAULT_EDGES[1:-1])   # 0..len(shares)-1
+    q = np.array([shares[i][0] for i in band])
+    r = np.array([shares[i][1] for i in band])
+    three_way = q * D + r * (86400 + normal) + (1 - q - r) * normal
+    out[m] = np.clip(three_way[m], CLIP_LO, CLIP_HI)
+    return out
+
+
 def fit_normal(train: pd.DataFrame) -> dict:
     """Two boosters for the non-artifact ("normal") term.
 
@@ -207,7 +264,12 @@ def main() -> None:
     valp = prep(val.copy())
     normal = predict_normal(boosters, valp)
     pred = combine(apply_p(val, p_clf), val["D"].to_numpy(), normal)
+    shares = fit_day_fault(fit)
+    pred = apply_day_fault(pred, val, np.nan_to_num(val["D"].to_numpy(), nan=0.0),
+                           normal, shares)
     val["pred"] = pred
+    print("day-fault shares per D band (q=P[y==D], r=P[y==86400+taxi]):",
+          [(round(q, 2), round(r, 2)) for q, r in shares])
 
     # Leaderboard composition: which months each airport appears in.
     con = duckdb.connect(str(DB), read_only=True)
@@ -264,6 +326,9 @@ def main() -> None:
         rkp[c] = rkp[c].cat.set_categories(full[c].cat.categories)
     normal_r = predict_normal(boosters, rkp)
     rk["pred"] = combine(apply_p(rk, p_clf), rk["D"].to_numpy(), normal_r)
+    rk["pred"] = apply_day_fault(rk["pred"].to_numpy(), rk,
+                                 np.nan_to_num(rk["D"].to_numpy(), nan=0.0),
+                                 normal_r, fit_day_fault(df))
 
     SUBMISSIONS.mkdir(exist_ok=True)
     out = SUBMISSIONS / f"{TEAM_NAME}_v{len(list(SUBMISSIONS.glob(f'{TEAM_NAME}_v*.parquet'))) + 1}.parquet"
