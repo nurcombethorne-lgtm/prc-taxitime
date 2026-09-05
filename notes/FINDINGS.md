@@ -820,3 +820,44 @@ the competing hypotheses about the hidden truth, (3) compute what each
 predicts for the *observed* leaderboard delta, (4) look for an observable
 proxy for the hidden truth (here: unblanked arrivals), (5) act on the
 hypothesis that survives. One failed submission bought a 15s gain.
+
+## After v13: residual oracle and the LIRF calibration check (5 Sep)
+
+Where the remaining ranking-weighted squared error sits on validation:
+
+    LFPG unmatched, y > 5.5h      2 rows    26.4%   (day-fault rows; look
+                                                      ordinary on every
+                                                      observable column)
+    LIRF unmatched, y < 1h      249 rows     9.5%
+    LTFM bulk                  45,851 rows     7.7%
+    LIRF matched bulk          25,815 rows     7.1%
+    ...
+
+Residual oracle (know every remaining y > 2h row exactly): LFPG +49.5s
+(9 rows), LIRF +13.7s (112 rows), everything else < 2s. LFPG's is the day
+fault, which v12 showed is not present in 2026 at the 2025 rate and which
+has no observable signature — dead. LIRF's remaining 13.7s is mostly the
+1-6h bands, which are a genuine mixture (fit months: 42% and 69% y == D),
+so force-D does not extend downward.
+
+**Calibration of the LIRF-unmatched subgroup by D band** (prediction-side
+conditioning, i.e. the valid test):
+
+    D band   val n   mean_p   val frac y==D   bias        fit frac y==D
+    1-2h      194     0.42        0.23       +1135s           0.42
+    2-6h      159     0.50        0.42       +2037s           0.69
+    >=6h       21     0.60        0.76       -3375s           0.83
+
+`p` tracks the fit-month fallback rate well; the validation bias is
+Jan+Jul 2025 having fewer fallbacks than the other ten months. The 2026
+evidence (subgroup 2.5x more prevalent; v13's +15s from trusting D)
+indicates *more* fallback in 2026, so a correction fitted to validation
+would most likely move the wrong way. Ceiling ~4s even with the sign
+known. No action.
+
+State after v13: **4th of 25 on comparable scores, 301.70, 23.2s from
+third.** The top three (277-278) sit ~24s clear of us and ~28s clear of
+5th, on a shared truth set. Whatever they have is not in this
+architecture's remaining error decomposition — the bulk is calibrated and
+the extremes are either taken (LIRF fallback) or unobservable (LFPG day
+fault).
