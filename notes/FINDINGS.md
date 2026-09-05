@@ -683,3 +683,51 @@ ratio the prevalence gap implied.
 **Lesson to keep**: when the validation set's composition differs from the
 scored set on the very variable a feature describes, the validation gain is
 the wrong estimator. Check prevalence in both before discarding a feature.
+
+## Cumulative weather — de-icing backlog (v11)
+
+Instantaneous METAR describes the moment; a de-icing pad backs up over
+hours. Added, computed as window aggregates on the METAR series itself
+before the ASOF join: precipitation over 6h and 12h, cold-only
+precipitation over 12h, the fraction of the last 6h in de-icing
+conditions, minimum temperature over 12h, minimum and mean visibility over
+3h, and hours since the airfield was last above freezing.
+
+These carry signal on the quantity the model actually predicts — the gap
+`y - recov` — and, crucially, cover far more flights than the
+instantaneous flag (≈55,000 vs 8,300):
+
+    cold spell            n         mean gap
+    frozen > 24h         13,175       +147s
+    frozen 6-24h         23,668        +82s
+    frozen < 6h          17,768        +32s
+    above freezing    1,809,767        -25s
+
+    sustained de-ice 6h   7,909       +184s
+    intermittent         22,443        +44s
+    none              1,834,026        -24s
+
+Prevalence again favours the scored set over validation:
+
+                        frozen   sustained de-ice
+    validation 2025      6.20%        2.75%
+    ranking 2026         8.03%        5.15%
+    ranking Jan 2026    18.14%       11.64%
+
+Validation showed +0.5s all-airport and +0.1s stable — below the noise
+floor. The prevalence ratio here is ~1.9x (against 3x for the
+instantaneous features), so the prevalence-adjusted expectation was ~1s.
+
+| ver | change | validation | actual |
+|-----|--------|-----------|--------|
+| v10 | instantaneous METAR | 356.4s | 318.06s |
+| v11 | + cumulative / backlog features | 357.4s | **316.80s** |
+
+Actual gain 1.26s against a predicted ~1s. The prevalence-adjusted
+estimator has now been right twice (predicted 3x -> 3.8s; predicted ~1s ->
+1.26s), which is far better calibration than raw validation on this class
+of feature.
+
+Weather total: 321.89 -> 316.80, i.e. **5.1s** from one open external
+source. Diminishing within the source, as expected — the instantaneous
+flags took most of it.

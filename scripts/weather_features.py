@@ -52,6 +52,36 @@ def main() -> None:
                       filename=false, ignore_errors=true)
         WHERE valid IS NOT NULL
     """)
+
+    # Cumulative conditions. A de-icing operation backs up over hours: what
+    # matters for the queue at the pad is how long it has been freezing and
+    # how much has fallen, not the reading at this instant. Likewise a long
+    # spell of low visibility means LVP have been running (and spacing
+    # widened) for a while, where a momentary dip means nothing.
+    con.sql(f"""
+        CREATE OR REPLACE TEMP TABLE metar AS
+        SELECT *,
+            sum(coalesce(precip_in, 0)) OVER w6  AS precip_6h,
+            sum(coalesce(precip_in, 0)) OVER w12 AS precip_12h,
+            sum(CASE WHEN temp_c <= {COLD_C} THEN coalesce(precip_in, 0) ELSE 0 END)
+                OVER w12                          AS precip_cold_12h,
+            avg(CASE WHEN temp_c <= {COLD_C} AND
+                          (coalesce(precip_in,0) > 0 OR wx LIKE '%SN%'
+                           OR wx LIKE '%FZ%') THEN 1.0 ELSE 0 END)
+                OVER w6                           AS deice_frac_6h,
+            min(temp_c) OVER w12                  AS temp_min_12h,
+            min(vis_mi) OVER w3                   AS vis_min_3h,
+            avg(vis_mi) OVER w3                   AS vis_mean_3h,
+            -- last moment the airfield was above freezing; the gap since is
+            -- how long ice has had to accumulate
+            max(CASE WHEN temp_c > 0 THEN t END) OVER wall AS last_thaw
+        FROM metar
+        WINDOW
+          w3  AS (PARTITION BY apt ORDER BY t RANGE BETWEEN INTERVAL 3 HOUR PRECEDING AND CURRENT ROW),
+          w6  AS (PARTITION BY apt ORDER BY t RANGE BETWEEN INTERVAL 6 HOUR PRECEDING AND CURRENT ROW),
+          w12 AS (PARTITION BY apt ORDER BY t RANGE BETWEEN INTERVAL 12 HOUR PRECEDING AND CURRENT ROW),
+          wall AS (PARTITION BY apt ORDER BY t ROWS UNBOUNDED PRECEDING)
+    """)
     n = con.sql("SELECT count(*) FROM metar").fetchone()[0]
     print(f"metar observations: {n:,}")
 
@@ -78,9 +108,20 @@ def main() -> None:
                CASE WHEN age_min <= {MAX_AGE_MIN} THEN deice END    AS wx_deice_risk,
                CASE WHEN age_min <= {MAX_AGE_MIN} THEN lowvis END   AS wx_lowvis,
                CASE WHEN age_min <= {MAX_AGE_MIN} THEN snow END     AS wx_snow,
-               CASE WHEN age_min <= {MAX_AGE_MIN} THEN freezing END AS wx_freezing
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN freezing END AS wx_freezing,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN precip_6h END       AS wx_precip_6h,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN precip_12h END      AS wx_precip_12h,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN precip_cold_12h END AS wx_precip_cold_12h,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN deice_frac_6h END   AS wx_deice_frac_6h,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN temp_min_12h END    AS wx_temp_min_12h,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN vis_min_3h END      AS wx_vis_min_3h,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN vis_mean_3h END     AS wx_vis_mean_3h,
+               CASE WHEN age_min <= {MAX_AGE_MIN} THEN hrs_since_thaw END  AS wx_hrs_since_thaw
         FROM (
             SELECT mvt_id, temp_c, vis_mi, wind_kt, precip_in,
+                   precip_6h, precip_12h, precip_cold_12h, deice_frac_6h,
+                   temp_min_12h, vis_min_3h, vis_mean_3h,
+                   least(date_diff('minute', last_thaw, t) / 60.0, 240) AS hrs_since_thaw,
                    date_diff('minute', t, mvt_time) AS age_min,
                    temp_c - dewp_c AS spread,
                    (temp_c <= {COLD_C})::INT AS cold,

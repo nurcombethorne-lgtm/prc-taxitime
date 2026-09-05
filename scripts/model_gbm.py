@@ -63,6 +63,12 @@ NUMS = ["dep_queue", "arr_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_p
         # tables. Available for every row, so both models get them.
         "wx_temp_c", "wx_vis_mi", "wx_wind_kt", "wx_precip_in", "wx_spread_c",
         "wx_cold", "wx_deice_risk", "wx_lowvis", "wx_snow", "wx_freezing",
+        # Cumulative conditions: a de-icing pad backs up over hours, so the
+        # length of the cold spell and what has fallen during it matter more
+        # than the reading at this instant, and they cover ~6x more flights.
+        "wx_precip_6h", "wx_precip_12h", "wx_precip_cold_12h",
+        "wx_deice_frac_6h", "wx_temp_min_12h", "wx_vis_min_3h",
+        "wx_vis_mean_3h", "wx_hrs_since_thaw",
         # Arrival-derived features are meaningful only after the ADES_mvt fix
         # in features.py; before it they bucketed arrivals by origin airport.
         "arr_taxi_mean60", "dep_recov_mean60",
