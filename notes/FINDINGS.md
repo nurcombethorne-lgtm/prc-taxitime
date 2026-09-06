@@ -882,3 +882,25 @@ fault).
   Unanswered. OPDI events are derived from OpenSky trajectories, which the
   organisers ruled out on 3 Sep, so treat as inadmissible unless stated.
 - Several teams asked for the 3/day cap to be raised. Unanswered.
+
+## Per-airport reporting offsets: stable into 2026 (no action)
+
+Henri's departure-side offsets (`AOBT_3_flt - BLOCK_TIME_UTC_mvt`, 2025)
+reproduce exactly on our copy: LTFM −296s, EHAM −107, EDDF −87, EGLL −54,
+LEMD −2, EDDM +2, LFPG +4, LSZH +33, LEBL +54, LIRF +118. The residual
+model learns these per airport, but only from 2025, and the departure
+block stamp is blanked in 2026 so the departure offset itself cannot be
+checked there.
+
+Arrivals can be. The analogous NM-vs-airport pair for arrivals is
+`MVT_TIME_UTC_mvt - ARVT_3_flt` (airport landing vs NM landing), median
+per airport, Jan+Jul 2025 vs the 2026 ranking set:
+
+    EDDF −11 → −16    EDDM −25 → −24    EGLL −14 → −3     EHAM −47 → −28
+    LEBL −18 → +8     LEMD +17 → +8     LFPG −2 → −3      LIRF −2 → −2
+    LSZH −2 → −3      LTFM  0 → +1
+
+Largest movements are EHAM (+19s median, +42s at p90) and LEBL (+26s).
+A 40s systematic shift at EHAM (17.7% of rows) would add ~280 to a
+weighted MSE of ~91,000 — under 0.3%. The reporting relationships learned
+from 2025 are safe to carry into 2026; no correction is warranted.
