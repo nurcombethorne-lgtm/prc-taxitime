@@ -904,3 +904,38 @@ Largest movements are EHAM (+19s median, +42s at p90) and LEBL (+26s).
 A 40s systematic shift at EHAM (17.7% of rows) would add ~280 to a
 weighted MSE of ~91,000 — under 0.3%. The reporting relationships learned
 from 2025 are safe to carry into 2026; no correction is warranted.
+
+## Runway / taxiway closures (NOTAMs): no mechanism, and no source — dead
+
+The idea: a closed taxiway changes the taxi distance for a stand × runway
+pair for days or weeks, which the model cannot see (it has month and hour
+but deliberately no date-level feature). If that mattered, it would appear
+as **time-localised residual shifts** within stand or runway groups.
+
+Tested as an oracle before sourcing anything. On stable-airport validation
+residuals (y < 1h, 277,758 rows, weighted residual MSE 46,908), group-mean
+adjustments estimated out-of-fold on one random half and evaluated on the
+other:
+
+    grouping                      groups   explained
+    (apt, week)                       80      +1.0%
+    (apt, rwy, week)                 366      +1.1%
+    (apt, stand, week)            15,990      -5.0%
+    (apt, stand, rwy, week)       39,641      -5.3%
+    (apt, stand, rwy), no time     6,877      -2.1%
+
+The stand-level groupings are *negative*: their within-cell residuals are
+noise, and fitting them hurts on the held-out half. The only positive
+signal is the airport-week effect at ~1% — about 1s of RMSE, and most
+likely weather we already have. There is **no date-local stand/runway
+structure left** for a closure feature to explain. As a side result, the
+static (apt, stand, rwy) residual mean is also noise: the model has fully
+extracted that structure.
+
+Source check ran in parallel: FAA NOTAM Search (the one public-domain
+archive of international NOTAMs) returns 403 from its edge for scripted
+requests, on both the landing page and the search backend. Moot given the
+oracle, and not something to work around.
+
+Closes the last named 2026-describing source. The remaining gap to the top
+three is not visible anywhere in this model's error decomposition.
