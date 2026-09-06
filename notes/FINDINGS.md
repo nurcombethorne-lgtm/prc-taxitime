@@ -939,3 +939,45 @@ oracle, and not something to work around.
 
 Closes the last named 2026-describing source. The remaining gap to the top
 three is not visible anywhere in this model's error decomposition.
+
+## Ensembling across model families — negative (5 Sep)
+
+`scripts/experiment_ensemble.py`. Only the matched-flight `normal` term
+was blended; the p classifier, force-D rule and unmatched model stayed
+fixed. Base models trained on eight fit months, blend weights fitted by
+non-negative least squares on the held-out Nov+Dec 2025 slice (never on
+validation), everything scored on Jan+Jul 2025.
+
+| model | all-airport | stable-only |
+|---|---|---|
+| A  LightGBM, residual target (live) | 337.2 | 231.5 |
+| B  CatBoost, residual target | 338.5 | 233.1 |
+| C  LightGBM, raw target | 364.8 | 232.7 |
+| blend, weights from Nov+Dec (A .19, B .28, C .52) | **343.2** | 229.0 |
+| equal-weight blend | 338.5 | 228.8 |
+
+Residual correlations: A–B **0.956**, A–C 0.823, B–C 0.801.
+
+Two things went wrong, and they are instructive together.
+
+**CatBoost is not a different model here.** A–B residuals correlate at
+0.956; its ordered target statistics bought no real diversity over
+LightGBM's categorical handling, and alone it is slightly worse.
+
+**The raw-target model is diverse for the wrong reason.** Its 0.82
+correlation with A looks like the diversity an ensemble wants, but its
+all-airport score is 364.8 — it mishandles the extreme rows, exactly the
+limitation that moved the live model to the residual target at v4 (trees
+cannot represent `recov + correction`). The blend weights, fitted on
+Nov+Dec where extremes are rare, put 52% on it, and the blended
+all-airport score — the quantity actually scored — got **worse** by 6s
+while the stable metric improved by 2.5s.
+
+Against the pre-committed rule (clear the ~5s stable noise floor AND show
+genuine diversity), the blend fails both. Not wired in, not submitted.
+Script kept; `catboost` stays a dependency so the result is reproducible.
+
+Lesson: residual correlation alone does not certify useful diversity.
+Check that the diverse model is not simply wrong on the rows that
+dominate the loss, and fit blend weights on a slice whose tail
+composition matches the scored set.

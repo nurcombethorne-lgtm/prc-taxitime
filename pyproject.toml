@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.43.85",
+    "catboost>=1.2.10",
     "duckdb>=1.5.5",
     "lightgbm>=4.7.0",
     "pandas>=3.0.5",
