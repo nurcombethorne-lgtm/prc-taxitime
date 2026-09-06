@@ -861,3 +861,24 @@ third.** The top three (277-278) sit ~24s clear of us and ~28s clear of
 architecture's remaining error decomposition — the bulk is calibrated and
 the extremes are either taken (LIRF fallback) or unobservable (LFPG day
 fault).
+
+## Discord intel, 5 Sep 2026
+
+- **No separate final phase is planned** (organiser; they "reserve the
+  right"). The public best-of-submissions leaderboard is therefore the
+  ranking itself, not a preliminary.
+- **Column semantics confirmed by the organiser**: `EOBT_1_flt` is what NM
+  last calculated from flight-plan information; `AOBT_3_flt` is what NM
+  knows from the flight once flown. This is exactly the interpretation
+  behind `aobt_vs_eobt`, our highest-gain feature.
+- **`_mvt` columns come from the airport according to phase** — ADEP for
+  departures, ADES for arrivals — confirmed a second time; every airport
+  has "its own equipment and procedures". This is the ADES_mvt fix.
+- Another team (Henri) measured a systematic per-airport offset between
+  `BLOCK_TIME_UTC_mvt` and `AOBT_3_flt`: LTFM median −296s, EHAM −107,
+  EDDF −87, LIRF +118. Our residual model learns this per airport from
+  2025; whether it held in 2026 is checked on arrivals below.
+- A participant asked whether **OPDI flight-events data** is admissible.
+  Unanswered. OPDI events are derived from OpenSky trajectories, which the
+  organisers ruled out on 3 Sep, so treat as inadmissible unless stated.
+- Several teams asked for the 3/day cap to be raised. Unanswered.
