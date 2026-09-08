@@ -173,6 +173,8 @@ Kept for the record, not part of the pipeline:
 | `baseline_v4.py` | mixture conditioned on NM-match status — produced submission **v2** |
 | `experiment_baseline.py` | median vs mean vs winsorised group aggregates |
 | `experiment_offset.py` | predicting the offset instead of taxi time (lost) |
+| `experiment_ensemble.py` | CatBoost / raw-target blend of the `normal` term (lost; see notes) |
+| `experiment_reporting_gap.py` | the diagnostics that found the LOBT/IOBT features behind v14 |
 | `sts_login.py` | token-based credential fallback, for when the console is down |
 
 `notes/FINDINGS.md` records every result including the negative ones, and
