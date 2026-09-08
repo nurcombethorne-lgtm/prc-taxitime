@@ -1108,3 +1108,33 @@ prior-half-hour runway configuration (number of runways in use, modal
 runway, whether the modal runway just changed, this flight's runway share)
 and prior-hour taxi-duration dispersion (a regulation or sequencing hold
 shows as high `recov` variance).
+
+**Hour-state carriers: none of them (6 Sep).** Correlation of the
+post-v14 bulk residual with each candidate, computed from the prior
+half-hour or hour so everything is 2026-observable:
+
+    apt    n_rwy  cfg_chg  on_modal  rwy_share  recov_sd  recov_mean  %cfg_chg
+    EDDF   .020    −.003    −.027     −.027      .008      .009       20.8
+    EDDM   .008    −.008     .004      .011      .013      .059       37.2
+    EGLL  −.002    −.014    −.009     −.004      .008     −.013        4.2
+    EHAM  −.011    −.005    −.009     −.007      .023      .003       31.6
+    LEBL   .008     .009     .008     −.001      .020     −.010        6.1
+    LEMD   .016    −.008     .011      .004      .015     −.036       39.1
+    LFPG  −.003     .006    −.007     −.004     −.040     −.051       30.8
+    LIRF   .000    −.039     .025      .020      .021     −.012        1.5
+    LSZH  −.006     .019     .004      .011      .016      .019       10.4
+    LTFM   .007     .001     .005      .001     −.007      .008       25.0
+
+Every |r| < 0.06. Configuration changes are frequent (20–39% of
+half-hours at six airports), so this is not a prevalence problem: runway
+configuration state and taxi-duration dispersion simply do not explain
+the remaining hour-level residual structure.
+
+**Conclusion — this line is closed.** The bulk residual still
+autocorrelates at 0.11–0.26 by hour, but no admissible observable carries
+it: plan deviation (absorbed by v14), the arrival reporting gap (r ≈ 0),
+runway configuration (≈ 0), taxi dispersion (≈ 0), weather and queues
+(already in the model). What remains is most plausibly the airport-side
+stamping system's own hour-to-hour behaviour — precisely the quantity
+that is blanked in 2026 — for which the data offers no proxy. Ceiling
+was 1–4s; not worth a slot on a guess.
