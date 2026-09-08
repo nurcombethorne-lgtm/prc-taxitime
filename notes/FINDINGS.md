@@ -1170,3 +1170,58 @@ hour carry 63% of error" on the same fold). Our discriminator (NM-match
 status) has not been mentioned. A participant (GREKI) hosts a
 five-minute-refresh leaderboard the organiser now links from the teams
 page.
+
+### Provenance (espinielli, 8 Sep 14:33) and the "neither" class
+
+The organiser's answer to Henri's provenance question: `_mvt` values come
+from the airports (validated by EUROCONTROL); `_flt` values are what the
+Network Manager knew, including in-flight message updates, with no
+post-ops adjustment. Block time "should be filled with actual" and
+nothing supplied is ground truth. So the scheduled-time fallback is an
+airport-side artefact the organisers did not put there and cannot
+explain — nothing more to learn about its mechanism from them.
+
+romano's decomposition of the 981 over-one-hour rows on Jan+Jul 2025
+(345 BLOCK=SCHED, 7 "+1 day", 630 "neither"; of the 630, 558 matched with
+median TAXITIME 4,258 s against median take-off − AOBT_3 of 1,264 s)
+named a class we had not isolated. Reproduced on our v14 validation
+residuals:
+
+| class (matched rows)        |      n | % sq err | mean y | mean gap | mean res |
+|-----------------------------|-------:|---------:|-------:|---------:|---------:|
+| other                       | 277,784|     54.3 |    971 |      −50 |       +8 |
+| delayed but normal          |  60,363|     33.4 |  1,116 |      141 |      +26 |
+| **neither, > 1 h**          |    519 |  **6.5** |  4,602 |    2,790 | **−995** |
+| fallback, > 1 h             |    257 |      5.7 |  5,179 |    3,611 |   −1,561 |
+
+The class has a signature: median AOBT_3 − LOBT is 52 min (vs 16 for
+other delayed flights), about the size of the gap itself. Tested for a
+third hard identity (block = LOBT / EOBT_1 / IOBT): **none**. Within the
+class the block is within 5 min of LOBT for only 19%, 34% before LOBT and
+40% between LOBT and AOBT_3 — a spread, not a point. The conditional
+structure is real but airport-specific: given AOBT_3 > LOBT + 60 min the
+gap tracks the revision 60% of the time at EGLL, 43% LTFM, 37% EHAM, 12%
+LSZH (ratio of means 0.27–0.61), and 87–100% once the revision exceeds
+90 min.
+
+**Stand re-occupation** is the strongest separator: when an arrival went
+on-block at the same stand between LOBT and AOBT_3, the gap tracks the
+revision 45% of the time vs 8% without (EGLL 72% vs 9%). The mechanism is
+physical — an arrival can only occupy a stand the departure has already
+left, so the arrival's on-block time bounds the airport's true off-block
+from above and NM's AOBT_3 is the late stamp. Arrival block times are
+unblanked in the ranking set (prevalence of a <15-min lead: 0.53% train,
+0.56% ranking). **But the tree already has it**: `turnaround_sec` is
+anchored at AOBT_3 for matched flights, so it *is* this reuse lead, and
+the v14 residual by lead bucket is unbiased (mean +18/−10/−6 s for
+<5/5–15/15–30 min), including the lead × revision-size interaction
+(−26/+3/+36/+168 s across revision buckets, the last on 62 rows). Plan-
+revision history (LOBT vs EOBT_1: 9% vs 19%) and LOBT vs SCHED (flat
+9–12%) do not separate further. **Closed**: the class is modelled at the
+conditional mean on every observable slice; the −995 s is within-cell
+mixture variance with no carrier found.
+
+Contingency measured the same day: v14 with every METAR feature removed
+scores 333.1 ranking-weighted / 226.4 stable-only (vs 328.4 / 222.7), so
+the weather block is worth ~4–5 s in validation. Moot for admissibility
+after the 8 Sep ruling; recorded for the write-up.
