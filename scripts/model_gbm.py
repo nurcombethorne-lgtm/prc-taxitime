@@ -56,7 +56,8 @@ CATS = ["apt", "stand", "rwy", "actype", "wake", "operator", "segment", "ades"]
 # (unmatched non-artifact flights taxi far longer than the fleet average).
 NUMS = ["dep_queue", "arr_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_prev60",
         "landing_prev15", "landing_prev30", "landing_prev60",
-        "sched_dep_60", "recov", "aobt_vs_eobt", "hr", "dow", "mon",
+        "sched_dep_60", "recov", "aobt_vs_eobt", "aobt_vs_lobt", "aobt_vs_iobt",
+        "hr", "dow", "mon",
         "unmatched", "D",
         # METAR-derived conditions (IEM archive). De-icing weather roughly
         # doubles mean taxi-out and is invisible in the movement/flight
@@ -69,6 +70,12 @@ NUMS = ["dep_queue", "arr_queue", "takeoff_prev15", "takeoff_prev30", "takeoff_p
         "wx_precip_6h", "wx_precip_12h", "wx_precip_cold_12h",
         "wx_deice_frac_6h", "wx_temp_min_12h", "wx_vis_min_3h",
         "wx_vis_mean_3h", "wx_hrs_since_thaw",
+        # Airport-state nowcast from the previous hour's OTHER departures:
+        # mean AOBT_3 - EOBT_1 (and LOBT variants). Carries most of the
+        # hour-level clustering of the NM-vs-airport reporting gap, which is
+        # the bulk of matched-flight error and otherwise unobservable in 2026.
+        "plan_eobt_mean60", "plan_eobt_mean180", "plan_lobt_mean60",
+        "plan_abs_lobt_mean60", "plan_n60",
         # Arrival-derived features are meaningful only after the ADES_mvt fix
         # in features.py; before it they bucketed arrivals by origin airport.
         "arr_taxi_mean60", "dep_recov_mean60",
@@ -81,7 +88,9 @@ FEATS = CATS + NUMS
 # these become unreliable exactly where LIRF's error lives — feeding them to
 # the unmatched model cost LIRF ~48s. The matched model keeps them.
 MATCHED_ONLY = ["arr_taxi_mean60", "dep_recov_mean60",
-                "turnaround_sec", "inbound_delay", "inbound_taxi_in"]
+                "turnaround_sec", "inbound_delay", "inbound_taxi_in",
+                # per-flight plan-revision gaps need the row's own AOBT_3
+                "aobt_vs_lobt", "aobt_vs_iobt"]
 FEATS_UNMATCHED = [f for f in FEATS if f not in MATCHED_ONLY]
 
 PARAMS = dict(objective="regression", metric="rmse", learning_rate=0.05,

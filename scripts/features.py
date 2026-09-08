@@ -48,6 +48,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
                PHASE_mvt AS phase,
                MVT_TIME_UTC_mvt AS mvt_time, AOBT_3_flt AS aobt,
                SCHED_TIME_UTC_mvt AS sched, EOBT_1_flt AS eobt,
+               LOBT_flt AS lobt, IOBT_flt AS iobt,
                BLOCK_TIME_UTC_mvt AS block,
                STAND_mvt AS stand, RUNWAY_mvt AS rwy,
                AIRCRAFT_TYPE_mvt AS actype, WK_TBL_CAT_flt AS wake,
@@ -203,6 +204,34 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         FROM turn
     """)
 
+    # --- flight-plan revision state, per flight and as an airport nowcast ---
+    # For matched flights the residual error is the gap between NM's
+    # off-block stamp and the airport's. That gap is clustered within the
+    # hour (r 0.12-0.39 with the previous hour's gaps), and the mean of
+    # AOBT_3 - EOBT_1 over the previous hour's OTHER departures carries most
+    # of that clustering (r 0.20-0.34) while being fully observable in the
+    # ranking set. Self is excluded by the 1-second-preceding bound.
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE plan AS
+        SELECT mvt_id,
+               avg(ve)      OVER w60  AS plan_eobt_mean60,
+               avg(ve)      OVER w180 AS plan_eobt_mean180,
+               avg(vl)      OVER w60  AS plan_lobt_mean60,
+               avg(abs(vl)) OVER w60  AS plan_abs_lobt_mean60,
+               count(*)     OVER w60  AS plan_n60
+        FROM (
+            SELECT mvt_id, apt, aobt AS t,
+                   epoch(aobt - eobt) AS ve, epoch(aobt - lobt) AS vl
+            FROM mv
+            WHERE phase='DEP' AND aobt IS NOT NULL AND eobt IS NOT NULL AND lobt IS NOT NULL
+        )
+        WINDOW
+          w60  AS (PARTITION BY apt ORDER BY t RANGE BETWEEN INTERVAL 60 MINUTE PRECEDING
+                                                       AND INTERVAL 1 SECOND PRECEDING),
+          w180 AS (PARTITION BY apt ORDER BY t RANGE BETWEEN INTERVAL 180 MINUTE PRECEDING
+                                                       AND INTERVAL 1 SECOND PRECEDING)
+    """)
+
     # --- planned demand: scheduled departures in the surrounding hour ---
     con.sql("""
         CREATE OR REPLACE TEMP TABLE sd AS
@@ -223,6 +252,10 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
                epoch(m.mvt_time - m.sched) AS D,
                epoch(m.mvt_time - m.aobt)  AS recov,
                epoch(m.aobt - m.eobt)      AS aobt_vs_eobt,
+               epoch(m.aobt - m.lobt)      AS aobt_vs_lobt,
+               epoch(m.aobt - m.iobt)      AS aobt_vs_iobt,
+               plan.plan_eobt_mean60, plan.plan_eobt_mean180,
+               plan.plan_lobt_mean60, plan.plan_abs_lobt_mean60, plan.plan_n60,
                coalesce(q.dep_queue, 0) AS dep_queue,
                coalesce(aq.arr_queue, 0) AS arr_queue,
                {', '.join(f'thr.takeoff_prev{w}, thr.landing_prev{w}' for w in WINDOWS_MIN)},
@@ -239,6 +272,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         LEFT JOIN sd    ON sd.mvt_id = m.mvt_id
         LEFT JOIN nowc  ON nowc.mvt_id = m.mvt_id
         LEFT JOIN turn  ON turn.mvt_id = m.mvt_id
+        LEFT JOIN plan  ON plan.mvt_id = m.mvt_id
         WHERE m.phase = 'DEP'
     """)
     print(f"  {table}: {con.sql(f'SELECT count(*) FROM {table}').fetchone()[0]:,} departures")

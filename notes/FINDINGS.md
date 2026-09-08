@@ -1010,3 +1010,75 @@ Dead as a proxy.
 The open question this leaves is whether any other 2026-observable
 quantity tracks the departure gap; the LOBT/IOBT columns (never used) are
 the remaining candidates and are tested next.
+
+## The columns never used: LOBT_flt and IOBT_flt (6 Sep)
+
+`LOBT_flt` (last known off-block) and `IOBT_flt` (initial off-block) had
+never entered the model. Against the departure reporting gap
+(`AOBT_3 − BLOCK`, the bulk of matched-flight error), on 1.86M rows:
+
+**Per flight.** `AOBT_3 − LOBT` splits the gap distribution: when NM's
+actual is more than 10 minutes from its last estimate (34.9% of flights)
+the mean gap is +72s with SD 448; otherwise the mean is −70 to −99 with
+SD ~250. Per-flight correlations with the gap: LOBT 0.447, IOBT 0.452,
+EOBT 0.492 (EOBT was already a feature; LOBT and IOBT were not).
+
+**As an airport nowcast — the finding that matters.** The mean of
+`AOBT_3 − EOBT_1` over the *previous hour's other departures* at the same
+airport, against the ceiling set by the (unobservable) previous hour's
+gaps themselves:
+
+    apt    ceiling   nowcast        apt    ceiling   nowcast
+    EDDF    .276      .203          LEMD    .249      .196
+    EDDM    .336      .288          LFPG    .193      .144
+    EGLL    .124      .028          LIRF    .368      .343
+    EHAM    .127     −.031          LSZH    .257      .220
+    LEBL    .386      .308          LTFM    .385      .274
+
+At eight of ten airports the nowcast recovers 70–95% of a ceiling that
+was unreachable an hour earlier, and everything in it is present for
+matched departures in the 2026 ranking set. EGLL and EHAM have little
+clustering to recover in the first place.
+
+Mechanism: "how late is this airport currently pushing versus plan" is an
+operational-state signal, and the reporting gap clusters on that state.
+This is distinct from the earlier (failed) nowcasts, which used arrival
+taxi-in and departure taxi duration — neither describes plan deviation.
+
+Built as `plan_eobt_mean60/180`, `plan_lobt_mean60`, `plan_abs_lobt_mean60`,
+`plan_n60` (self excluded by the window bound) plus per-flight
+`aobt_vs_lobt`, `aobt_vs_iobt`. Validation result recorded below.
+
+**Validation and result (v14).** Distributions of the new features match
+across train and ranking (hour-mean AOBT_3−EOBT_1 342.9 vs 344.5, null
+rate 1.3% vs 1.75%, ~34 departures per window in both).
+
+| | all-airport | stable-only |
+|---|---|---|
+| v13 live | 336.8 | 228.8 |
+| + LOBT/IOBT gaps + plan nowcast | **332.0** | **225.2** |
+
+Every comparable airport improved: EHAM ~−20, EGLL ~−15, LIRF ~−14,
+EDDM ~−11, EDDF ~−10, LFPG −5, LTFM −5, LSZH −4, LEMD −2. Passed the
+pre-committed rule (≥3s stable, consistent pattern, matching
+distributions).
+
+| ver | change | validation (stable) | actual |
+|-----|--------|--------------------|--------|
+| v13 | force-D on LIRF subgroup | 228.8 | 301.70 |
+| v14 | + `aobt_vs_lobt`, `aobt_vs_iobt`, `plan_*` nowcast | 225.2 | **296.47** |
+
+Standing after v14: 18th of 69 on the new set; third place is 266.84.
+
+**Honest note on what did the work.** Feature gain: `aobt_vs_lobt` 6.2%
+(5th), `aobt_vs_iobt` 4.1% (7th); none of the `plan_*` nowcast columns
+reach the top ten. The per-flight plan-revision gaps carried more than the
+hour-level nowcast, despite the nowcast having the more striking
+correlation analysis. Trees prefer the direct per-row quantity; the
+hour-level state is probably part-absorbed by `hr` and the queue features.
+
+**Process note.** This is the cleanest instance of the week's pattern:
+ask what the error *is* (a reporting gap), test whether it is structured
+(yes, r 0.12–0.39 by hour), find what observable in 2026 tracks it (not
+arrivals; yes, the never-used LOBT/IOBT columns), bound the gain before
+building, pre-commit the acceptance rule, check prevalence, then build.

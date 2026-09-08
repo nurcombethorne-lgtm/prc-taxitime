@@ -64,8 +64,8 @@ uv run scripts/fetch_weather.py               # METAR history -> data/weather/
 uv run scripts/weather_features.py            # join weather onto features.duckdb
 uv run scripts/model_gbm.py --dry-run         # validate only
 uv run scripts/model_gbm.py                   # + write submissions/resilient-kiwi_vN.parquet
-uv run scripts/validate_submission.py submissions/resilient-kiwi_v13.parquet
-uv run scripts/upload_submission.py submissions/resilient-kiwi_v13.parquet
+uv run scripts/validate_submission.py submissions/resilient-kiwi_v14.parquet
+uv run scripts/upload_submission.py submissions/resilient-kiwi_v14.parquet
 ```
 
 `model_gbm.py` is the live model. The `baseline*.py` scripts are earlier
@@ -119,4 +119,5 @@ are not comparable with those above.
 | v10 | METAR weather features | 318.06 |
 | v11 | cumulative de-icing features | 316.80 |
 | v12 | LIRF day-fault three-way rule (did not transfer, reverted) | 319.70 |
-| v13 | predict the scheduled-time fallback outright on the LIRF subgroup | **301.70** |
+| v13 | predict the scheduled-time fallback outright on the LIRF subgroup | 301.70 |
+| v14 | flight-plan revision gaps (LOBT/IOBT) + airport-state nowcast | **296.47** |

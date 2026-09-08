@@ -1,7 +1,7 @@
 # Reproducing the submission
 
-This reproduces `resilient-kiwi_v13.parquet`, our best scoring submission
-(RMSE **301.70** on the regenerated 344,841-row ranking set issued on
+This reproduces `resilient-kiwi_v14.parquet`, our best scoring submission
+(RMSE **296.47** on the regenerated 344,841-row ranking set issued on
 4 Sep 2026). Scores from before that re-issue (v1-v8, best 291.59) were
 against a smaller, easier test set and are not comparable.
 
@@ -104,6 +104,13 @@ the RMSE-optimal prediction is its mean:
   weather is far more common in the 2026 ranking months than in the 2025
   validation months, which is why these transfer better than validation
   suggests.
+* **Flight-plan revision gaps** — `AOBT_3 − LOBT` and `AOBT_3 − IOBT`
+  per flight (how far NM's actual moved from its last and initial
+  off-block estimates), plus the mean `AOBT_3 − EOBT_1` over the previous
+  hour's other departures at the same airport as an operational-state
+  nowcast. These target the gap between NM's and the airport's off-block
+  stamps, which is most of the matched-flight error and is clustered
+  within the hour.
 * **LIRF fallback rule** — for LIRF departures with no NM record whose
   take-off is 6h or more past schedule, predict `D` outright
   (`FORCE_D_ENABLED`). In that subgroup the target is almost never a
@@ -149,7 +156,7 @@ Live pipeline:
 | `features.py` | build `data/features.duckdb` |
 | `fetch_weather.py` | download METAR history for the ten airports (IEM archive) |
 | `weather_features.py` | join weather onto the feature set (`wx` table) |
-| `model_gbm.py` | **the model** — produced submissions v3 through v13 |
+| `model_gbm.py` | **the model** — produced submissions v3 through v14 |
 | `check_dataset.py` | detect a re-issued competition dataset |
 | `leaderboard.py` | read standings from the API (the public notebook is broken) |
 | `validate_submission.py` | enforce the organisers' row constraints |
