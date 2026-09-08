@@ -1138,3 +1138,35 @@ runway configuration (≈ 0), taxi dispersion (≈ 0), weather and queues
 stamping system's own hour-to-hour behaviour — precisely the quantity
 that is blanked in 2026 — for which the data offers no proxy. Ceiling
 was 1–4s; not worth a slot on a guess.
+
+## Organiser rulings, 8 Sep 2026 (Discord, espinielli 15:22)
+
+Three questions from another participant (romano), answered directly:
+
+1. **Are the corrupted rows scored?** "Probably yes. The ranking comes
+   from whatever we got from the relevant airports for Jan/Jul 2026."
+   → Model them; do not assume they are filtered. Consistent with v13.
+2. **METAR / NOTAM / OPDI as external sources?** "**Open source data are
+   allowed if declared in the documentation for the solution/repo.**"
+   → METAR (IEM archive) is admissible. It is declared in README.md
+   (External data) and REPRODUCE.md. v10–v14 stand for prize purposes.
+   The 3 Sep ruling that OpenSky state vectors are not an open external
+   source is unchanged, so OPDI (OSN-derived) remains out for us.
+3. **The ~630 rows where AOBT_3 and BLOCK disagree by ~50 min?** "I do
+   not know of recurring operational reasons for those outliers, but they
+   are there. Some could be linked to specific events, others could just
+   be messy data from airport or NM."
+
+Our check of item 3 (Jan+Jul 2025, gap 40–60 min): 622 rows — LIRF 231,
+EGLL 176, LFPG 53, EDDM 48, LTFM 32. The gap histogram decays smoothly
+(617 → 277 → 168 → 96 → 49 per 10-min bin from 40 min) with no bump at
+50, so this is the tail of the reporting-gap distribution, not a discrete
+artefact class. At LIRF 145 of the 231 are the scheduled-time fallback we
+already model. No action.
+
+Also from the thread: the BLOCK=SCHED artefact is now being discussed
+openly (Henri raised its provenance; romano reproduced "981 rows over one
+hour carry 63% of error" on the same fold). Our discriminator (NM-match
+status) has not been mentioned. A participant (GREKI) hosts a
+five-minute-refresh leaderboard the organiser now links from the teams
+page.
