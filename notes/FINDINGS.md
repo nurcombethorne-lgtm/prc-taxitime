@@ -981,3 +981,32 @@ Lesson: residual correlation alone does not certify useful diversity.
 Check that the diverse model is not simply wrong on the rows that
 dominate the loss, and fit blend weights on a slice whose tail
 composition matches the scored set.
+
+## The bulk error is a reporting gap, and it is clustered in time (6 Sep)
+
+For matched flights the target decomposes exactly as
+`y = recov + (AOBT_3_flt − BLOCK_TIME_UTC_mvt)` with `recov` known, so the
+bulk error is the variance of the gap between NM's off-block stamp and
+the airport's. Per-airport SD of that gap: 235s (EDDF) to 434s (LTFM).
+
+**It is autocorrelated within the hour.** Correlation of a departure's gap
+with the mean gap of the previous hour's departures at the same airport:
+
+    EDDF .28  EDDM .34  EGLL .12  EHAM .13  LEBL .39
+    LEMD .25  LFPG .19  LIRF .37  LSZH .26  LTFM .39
+
+So there is hour-level structure in the quantity the model spends most of
+its error on — and the model cannot see it, because the gap requires
+`BLOCK_TIME_UTC_mvt`, which is blanked for departures in 2026. This is a
+*ceiling*, not a feature.
+
+**The arrival reporting gap does not carry it.** The obvious
+2026-observable proxy — the same airport's arrival gap
+(`MVT_TIME − ARVT_3_flt`) over the preceding 60 or 180 minutes — correlates
+with the departure gap at r ≈ 0.00 at every airport (max 0.047), with 99%+
+coverage. The two phases' reporting gaps are not a shared system lag.
+Dead as a proxy.
+
+The open question this leaves is whether any other 2026-observable
+quantity tracks the departure gap; the LOBT/IOBT columns (never used) are
+the remaining candidates and are tested next.
