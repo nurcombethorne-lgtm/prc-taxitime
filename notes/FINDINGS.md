@@ -1082,3 +1082,29 @@ ask what the error *is* (a reporting gap), test whether it is structured
 (yes, r 0.12–0.39 by hour), find what observable in 2026 tracks it (not
 arrivals; yes, the never-used LOBT/IOBT columns), bound the gain before
 building, pre-commit the acceptance rule, check prevalence, then build.
+
+## After v14: hour-level structure remains, and the nowcast was absorbed
+
+Bulk residuals (matched, non-artifact, |res| < 1h) against the previous
+hour's mean residual at the same airport, and against the plan nowcast:
+
+    apt   r_prev_hour   r_nowcast        apt   r_prev_hour   r_nowcast
+    EDDF     .177         .005           LEMD     .168         .032
+    EDDM     .178        −.014           LFPG     .154        −.001
+    EGLL     .148         .030           LIRF     .195        −.039
+    EHAM     .114         .020           LSZH     .164         .001
+    LEBL     .213         .043           LTFM     .256        −.083
+
+Two readings. `r_nowcast ≈ 0` everywhere: the model used
+`plan_eobt_mean60` fully, so its low feature-gain ranking reflects a small
+marginal contribution, not neglect. And residual autocorrelation of
+0.11–0.26 (down from the 0.12–0.39 gap ceiling) means v14 took a real bite
+but a different hour-level state is still unmodelled — strongest at LTFM,
+LEBL and LIRF, the multi-runway airports whose configurations switch.
+
+Ceiling for whatever carries it: r² ≈ 1–7% of bulk MSE, i.e. roughly 1–4s
+on the stable metric. Candidate 2026-observable carriers tested next:
+prior-half-hour runway configuration (number of runways in use, modal
+runway, whether the modal runway just changed, this flight's runway share)
+and prior-hour taxi-duration dispersion (a regulation or sequencing hold
+shows as high `recov` variance).
