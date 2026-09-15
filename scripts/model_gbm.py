@@ -261,7 +261,16 @@ def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--drop", default="",
+                    help="comma-separated features to remove from every model "
+                         "(e.g. --drop mon), for transfer experiments the "
+                         "harness cannot score")
     args = ap.parse_args()
+    if args.drop:
+        gone = {f.strip() for f in args.drop.split(",") if f.strip()}
+        for lst in (NUMS, FEATS, FEATS_UNMATCHED):
+            lst[:] = [f for f in lst if f not in gone]
+        print(f"dropped features: {sorted(gone)}")
 
     con = duckdb.connect(str(DB), read_only=True)
     df = con.sql("""SELECT t.*, w.* EXCLUDE (mvt_id)
@@ -320,6 +329,24 @@ def main() -> None:
         print(f"{apt:6s} {str(months):>8s} {r:8.1f} {w:7.1%}")
     print(f"\nranking-weighted estimate: {mse ** 0.5:.1f}s"
           f"   stable-only (excl LIRF/LFPG): {(stable_mse / stable_w) ** 0.5:.1f}s")
+    # January and July separately (stable airports, each month weighted by
+    # its own ranking rows). A pooled figure hides month-specific effects,
+    # and a change has to improve both to count.
+    parts = []
+    for m in (1, 7):
+        mw = mm = 0.0
+        for apt, grp in mix.groupby("apt"):
+            if apt in ("LIRF", "LFPG"):
+                continue
+            n = float(grp.loc[grp["mon"] == m, "n"].sum())
+            if n < 0.01 * grp["n"].sum():
+                continue
+            sub = val[(val["apt"] == apt) & (val["mon"] == m)]
+            r2 = float(np.mean((sub["pred"] - sub["y"]) ** 2))
+            mw += n
+            mm += n * r2
+        parts.append(f"{'Jan' if m == 1 else 'Jul'} {(mm / mw) ** 0.5:.1f}s")
+    print("stable-only by month: " + "   ".join(parts))
     print("  scored: v1 511.88  v2 458.24  v3 314.42  v4 300.48  v5 297.01  v7 292.22")
 
     imp = pd.Series(boosters["matched"][0].feature_importance("gain"),

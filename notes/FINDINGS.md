@@ -1225,3 +1225,94 @@ Contingency measured the same day: v14 with every METAR feature removed
 scores 333.1 ranking-weighted / 226.4 stable-only (vs 328.4 / 222.7), so
 the weather block is worth ~4–5 s in validation. Moot for admissibility
 after the 8 Sep ruling; recorded for the write-up.
+
+## 15 Sep — Discord 10–15 Sep, standings, and the probing problem
+
+Standing: **53rd of 144** at 296.47 (was 20th of 71 on 8 Sep). We did
+not move; the field did. The board now has a cluster of four at
+245.0–247.0 (youthful-giraffe, jovial-uniform, vigorous-whistle,
+enthusiastic-daisy) about 15 s clear of the next group at 260–267.
+
+**What the cluster is, per the channel.** Piyush Patil (12 Sep 19:49),
+answering the organiser's remark that nobody outranks youthful-giraffe:
+"A few hundred Rome departures without an NM off-block have labels that
+are either a normal taxi or a schedule default of 40,000 to 110,000 s.
+Each such row is worth 1 to 3 s of RMSE by itself, so a single submission
+changing one row reveals its label from the score difference, and five
+submissions a day resolves them all within days. That produces exactly
+the pattern on the board: flat plateaus, then one large step nobody
+learning from 2025 can follow." Luis agreed and proposed rounding the
+public score or scoring on a subset; the organiser (espinielli, 22:12):
+"Thanks for the 'fair' notification...we will see what happens...
+eventually we can always set a phase 2: we have plenty of data...but it
+is a pity to play for the win rather than for the real goal." On 11 Sep
+espinielli had said no phase 2 was foreseen "but we will reserve the
+right to change this...maybe it is too easy or reverse engineering the
+ranking (which we despise) is too easy". **We do not probe** (the brief
+forbids it and the organisers despise it); if a phase-2 hidden set
+appears, only genuine model quality survives, which is what we build.
+
+**Validation advice from the 260-group (Piyush, 12 Sep 19:46),** after
+"half a dozen changes that improved 2025 holdouts and lost on the
+board": hold out January and July separately and require both to
+improve; split error by lane (NM off-block present vs absent) because
+the absent lane holds a third of squared error in a few hundred rows and
+behaves differently in 2026; permutation control for classifier changes;
+reject any gain concentrated in under a hundred rows; compare 2025 vs
+2026 feature distributions before training. "Anchoring the target on
+take-off minus the NM off-block time was the only large step for us;
+everything since has been model diversity worth under a second each."
+That is our residual formulation (v4). Harness now prints stable-only
+January and July separately (`model_gbm.py`).
+
+**JavierIOM (13 Sep 01:27), measured on the board:** dropping the
+seasonal columns (month, day-of-year, is_summer) — CV said +43 s on July,
+**board said −7.6 s**; blend weights fitted on a holdout lost four times
+out of four while equal weights held; hyperparameter tuning not
+significant for LightGBM/CatBoost/XGBoost; row weighting toward scored
+cells: nothing; XGBoost as third blend member: zero weight. Their weather
+features had been silently null for nineteen submissions (timezone-aware
+vs naive join key); fixed, worth 3.4 s, and temperature–dewpoint spread
+beat a binary snow flag "because most de-icing happens on clear frosty
+mornings that carry no precipitation code". No feature of theirs shifted
+more than 0.25 sd between 2025 Jan+Jul and the 2026 set. JavierIOM
+withdrew on 15 Sep.
+
+Our checks against those: every one of our 56 features has a null rate
+within 0.5 pp between 2025 Jan+Jul rows and 2026 ranking rows (no silent
+nulls); `wx_spread_c` is already in. The seasonal-column point is the
+live one: our fit months exclude January and July, so validation never
+exercises `mon` = 1 or 7, while the submission model trains on all
+twelve months and can carry January-2025-specific structure into
+January 2026. The harness cannot score that; a `--drop` switch was added
+to run the experiment and the result is recorded below.
+
+Organiser answers to Piyush's 10 Sep provenance questions (BLOCK source,
+LIRF schedule-valued blocks among matched flights, AOBT_3 source): "we
+do not know", "your guess is as good as ours", and how to treat messy
+rows is the participant's call. Trino/historical data: "No access will
+be granted on the sole basis of participating to the Challenge" and not
+allowed for the challenge (11 Sep). Dataset unchanged since 4 Sep.
+
+### The `mon` transfer experiment (15 Sep)
+
+`--drop mon` dry-run against the same-day baseline (harness noise ~5 s):
+
+| config        | ranking-weighted | stable-only | stable Jan | stable Jul |
+|---------------|-----------------:|------------:|-----------:|-----------:|
+| v14 (with mon)|            331.9 |       225.2 |      204.5 |      240.6 |
+| without mon   |            332.3 |       225.2 |      204.2 |      240.7 |
+
+Exactly neutral, as it must be: the fit months exclude January and July,
+so `mon` = 1 and 7 are never seen during validation and the feature
+cannot matter there. It can only act in the full-year refit that produces
+the submission, where it lets the model carry January-2025- and
+July-2025-specific structure into 2026. The harness is structurally blind
+to that; the only measurement anyone has is JavierIOM's board result
+(−7.6 s from dropping seasonal columns while CV said +43 s). Submitted as
+**v15** (v14 pipeline, `--drop mon`) on the strength of the mechanism
+and that external evidence. Under best-of-all scoring the slot costs
+nothing if it does not transfer; the result settles whether `dow` and
+the raw month should follow. (The same-day v14 baseline reads 331.9 /
+225.2 against 328.4 / 222.7 on 8 Sep from thread nondeterminism alone —
+the noise floor is real.)
