@@ -1309,9 +1309,9 @@ cannot matter there. It can only act in the full-year refit that produces
 the submission, where it lets the model carry January-2025- and
 July-2025-specific structure into 2026. The harness is structurally blind
 to that; the only measurement anyone has is JavierIOM's board result
-(−7.6 s from dropping seasonal columns while CV said +43 s). Submitted as
-**v15** (v14 pipeline, `--drop mon`) on the strength of the mechanism
-and that external evidence. Under best-of-all scoring the slot costs
+(−7.6 s from dropping seasonal columns while CV said +43 s). Built as **v15**
+(v14 pipeline, `--drop mon`) on the strength of the mechanism and that
+external evidence; uploaded by hand. Under best-of-all scoring the slot costs
 nothing if it does not transfer; the result settles whether `dow` and
 the raw month should follow. (The same-day v14 baseline reads 331.9 /
 225.2 against 328.4 / 222.7 on 8 Sep from thread nondeterminism alone —
