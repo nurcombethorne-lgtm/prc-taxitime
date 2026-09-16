@@ -1323,3 +1323,44 @@ nothing if it does not transfer; the result settles whether `dow` and
 the raw month should follow. (The same-day v14 baseline reads 331.9 /
 225.2 against 328.4 / 222.7 on 8 Sep from thread nondeterminism alone —
 the noise floor is real.)
+
+## 16 Sep — what is left: four diagnostics on the fallback classifier and the airfield-state nowcast
+
+**Is the fallback a system event (outage) that arrivals could nowcast?** No.
+Hourly departure-fallback rate vs same-hour arrival-fallback rate: r 0.00–0.17
+by airport; LIRF's departure rate moves only from 25% to 34% in the rare
+hours where most arrivals were at scheduled time. Per-flight, not temporal.
+**Closed.**
+
+**How well does `p` discriminate?** Matched-lane AUC 0.81 (LTFM) to 0.93
+(EHAM), LIRF 0.86; unmatched LIRF 0.83. Gain: D 39%, stand 16%, operator
+10%, ades 8%, rwy 7%. Ceiling (matched lane, `normal` ≈ recov): a perfect
+discriminator is worth ~4,800 MSE points ≈ **8 s on the headline**, almost
+all at LIRF (538 → 469) and LEBL. Realistic improvement is a few seconds.
+
+**Is the fallback operator-driven, and did operators drift into 2026?**
+Only at LIRF: departure vs arrival fallback rate across operators r 0.79
+there, ≤0.21 everywhere else; 17% of LIRF fallback rows come from
+operators above 50%. The model already has `operator`. Drift: 2026
+arrival fallback rates per (airport, operator) correlate 0.48–0.84 with
+2025, means identical, not one operator shifted by >20 pp. An
+arrival-based operator feature would add nothing. **Closed.**
+
+**Does a day-level arrival taxi-in anomaly carry residual beyond the
+60-minute window?** Modestly, at the airports that matter. Hourly mean
+departure taxi (diurnal-adjusted) vs arrival taxi-in, partial correlation
+after removing the previous-hour window already in the model:
+
+| apt | r prev-1h | partial prev-6h | partial same-day (excl. hour) |
+|-----|----------:|----------------:|------------------------------:|
+| LFPG| 0.217 | 0.099 | **0.185** |
+| LIRF| 0.157 | 0.023 | **0.147** |
+| LEMD| 0.152 | 0.088 | 0.117 |
+| EGLL| 0.248 | 0.045 | 0.107 |
+| EDDF| 0.265 | 0.075 | 0.084 |
+| EHAM| −0.499| −0.111| −0.117 (sign inverted; EHAM arrival taxi-in is odd) |
+| others | | ≤0.08 | ≤0.05 |
+
+The whole scored day's arrival taxi-ins are in the ranking file, so a
+same-day (not just causal) arrival anomaly is a legitimate, observable
+feature. **Open lead**, expected 1–3 s, mostly LFPG/LIRF/LEMD/EGLL.
