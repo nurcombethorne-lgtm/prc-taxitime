@@ -1311,7 +1311,14 @@ July-2025-specific structure into 2026. The harness is structurally blind
 to that; the only measurement anyone has is JavierIOM's board result
 (−7.6 s from dropping seasonal columns while CV said +43 s). Built as **v15**
 (v14 pipeline, `--drop mon`) on the strength of the mechanism and that
-external evidence; uploaded by hand. Under best-of-all scoring the slot costs
+external evidence; uploaded by hand.
+
+**Result (16 Sep): v15 = 296.56 vs v14 296.47 — null (+0.09 s).** The
+month feature carries no year-specific structure in our model; the
+seasonality Javier's month column stood in for is already explained by
+the METAR block. `dow` and the raw hour stay. The transfer trap is
+real for models without weather, not for ours. Rank 59/150 on 16 Sep;
+gentle-igloo jumped 273 → 252 overnight, the probing signature again. Under best-of-all scoring the slot costs
 nothing if it does not transfer; the result settles whether `dow` and
 the raw month should follow. (The same-day v14 baseline reads 331.9 /
 225.2 against 328.4 / 222.7 on 8 Sep from thread nondeterminism alone —
