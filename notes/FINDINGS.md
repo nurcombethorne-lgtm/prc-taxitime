@@ -1364,3 +1364,40 @@ after removing the previous-hour window already in the model:
 The whole scored day's arrival taxi-ins are in the ranking file, so a
 same-day (not just causal) arrival anomaly is a legitimate, observable
 feature. **Open lead**, expected 1–3 s, mostly LFPG/LIRF/LEMD/EGLL.
+
+### Built and scored in validation (16 Sep): same-day arrival state, classifier polish
+
+`features.py` now emits `arr_taxi_day` (mean arrival taxi-in at the airport
+over the departure's UTC day, excluding its own hour and excluding
+fallback arrivals), `arr_taxi_day_n` and `arr_taxi_prev6h`; matched-only
+like the 60-minute nowcast. 2025-vs-2026 distributions match (no nulls,
+medians within a few percent); LFPG's day-to-day spread doubles in 2026
+(sd 33 → 68), EHAM's is large in both years.
+
+| config                         | headline | stable | Jan   | Jul   | LFPG  | LIRF  |
+|--------------------------------|---------:|-------:|------:|------:|------:|------:|
+| v14 baseline (same day)        |    331.9 |  225.2 | 204.5 | 240.6 | 575.6 | 629.5 |
+| + day features                 |    332.3 |  225.4 | 204.8 | 240.7 | 575.9 | 631.1 |
+| + day features + p 500r×3 seeds|    332.3 |  225.4 | 204.5 | 240.8 | 576.5 | 630.8 |
+
+Both **null in validation**. The partial correlation of 0.15–0.19 was
+against diurnal-adjusted hourly means, not against the model's residual;
+queues, weather and the plan nowcast evidently already carry the day
+state in 2025. The classifier polish additionally drifts calibration
+(0.46 predicted / 0.43 actual, 0.69 / 0.65 in the middle bins) — more
+rounds overfit the probability. **Polish closed**; switches kept
+(`--p-rounds`, `--p-seeds`, default off).
+
+**Why the day feature cannot transfer either.** The prevalence argument
+that rescued weather does not apply. Ranking 2026 has severely disrupted
+days (day arrival taxi ≥ 1.5× the airport norm) at LFPG (1.25% of rows)
+and LSZH (1.27%), which validation never saw — but neither did the fit
+months: across the whole of 2025 there is **no** such day at LFPG, LSZH,
+LIRF or LTFM, and only two at LEMD (240 rows, taxi +7%). A tree cannot
+learn a condition it never met; on the 2026 LFPG day the value is
+outside the training range and the model extrapolates flat. Even a
+perfect day-effect model would recover well under 1 s from those rows.
+**Not submitted.** Features stay in `features.py` and are opt-in via
+`--add arr_day`; the default model reproduces v14. With the organisers
+now watching for plateau-and-step submission patterns, near-identical
+uploads are also to be avoided on their own account.

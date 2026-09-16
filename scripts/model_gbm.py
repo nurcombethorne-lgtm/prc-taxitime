@@ -48,6 +48,7 @@ P_PARAMS = dict(objective="binary", metric="binary_logloss", learning_rate=0.05,
                 bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0,
                 verbose=-1, num_threads=0)
 P_ROUNDS = 300
+P_SEEDS = (1,)       # seed-averaged when len > 1 (--p-seeds)
 
 CATS = ["apt", "stand", "rwy", "actype", "wake", "operator", "segment", "ades"]
 # `unmatched` and `D` belong here even though the mixture also uses them:
@@ -92,6 +93,13 @@ MATCHED_ONLY = ["arr_taxi_mean60", "dep_recov_mean60",
                 # per-flight plan-revision gaps need the row's own AOBT_3
                 "aobt_vs_lobt", "aobt_vs_iobt"]
 FEATS_UNMATCHED = [f for f in FEATS if f not in MATCHED_ONLY]
+# Built, validated neutral, and kept out of the default model so the
+# pipeline reproduces v14 exactly. Enable with --add <group>.
+#   arr_day: same-day airfield state from the scored day's arrivals (whole
+#   UTC day excluding the flight's own hour, plus the preceding 6 h).
+#   Inert by construction: 2025 holds no severely disrupted day at LFPG,
+#   LSZH, LIRF or LTFM for the tree to learn from (see notes, 16 Sep).
+OPTIONAL = {"arr_day": ["arr_taxi_day", "arr_taxi_day_n", "arr_taxi_prev6h"]}
 
 PARAMS = dict(objective="regression", metric="rmse", learning_rate=0.05,
               num_leaves=255, min_data_in_leaf=100, feature_fraction=0.9,
@@ -130,6 +138,11 @@ def fit_p(fit: pd.DataFrame):
     f = fit[fit["D"].notna()].copy()
     f["is_d"] = ((f["y"] - f["D"]).abs() <= TOL).astype(int)
     f = prep(f)
+    if len(P_SEEDS) > 1:
+        return [lgb.train(dict(P_PARAMS, seed=sd, bagging_seed=sd, feature_fraction_seed=sd),
+                          lgb.Dataset(f[FEATS_UNMATCHED], f["is_d"],
+                                      categorical_feature=CATS),
+                          num_boost_round=P_ROUNDS) for sd in P_SEEDS]
     return lgb.train(P_PARAMS,
                      lgb.Dataset(f[FEATS_UNMATCHED], f["is_d"],
                                  categorical_feature=CATS),
@@ -137,7 +150,11 @@ def fit_p(fit: pd.DataFrame):
 
 
 def apply_p(df: pd.DataFrame, clf, _unused=None) -> np.ndarray:
-    p = clf.predict(prep(df.copy())[FEATS_UNMATCHED])
+    x = prep(df.copy())[FEATS_UNMATCHED]
+    if isinstance(clf, list):
+        p = np.mean([c.predict(x) for c in clf], axis=0)
+    else:
+        p = clf.predict(x)
     p = np.asarray(p, dtype=float).copy()
     p[df["D"].isna().to_numpy()] = 0.0
     return p
@@ -265,7 +282,23 @@ def main() -> None:
                     help="comma-separated features to remove from every model "
                          "(e.g. --drop mon), for transfer experiments the "
                          "harness cannot score")
+    ap.add_argument("--add", default="",
+                    help="comma-separated OPTIONAL groups to enable (matched "
+                         "model only), e.g. --add arr_day")
+    ap.add_argument("--p-rounds", type=int, default=None)
+    ap.add_argument("--p-seeds", type=int, default=None,
+                    help="number of seed-averaged classifiers (default 1)")
     args = ap.parse_args()
+    global P_ROUNDS, P_SEEDS
+    if args.p_rounds:
+        P_ROUNDS = args.p_rounds
+    if args.p_seeds:
+        P_SEEDS = tuple(range(1, args.p_seeds + 1))
+    print(f"classifier: {P_ROUNDS} rounds x {len(P_SEEDS)} seed(s)")
+    for grp in [g.strip() for g in args.add.split(",") if g.strip()]:
+        for f in OPTIONAL[grp]:
+            NUMS.append(f); FEATS.append(f); MATCHED_ONLY.append(f)
+        print(f"added optional group {grp}: {OPTIONAL[grp]}")
     if args.drop:
         gone = {f.strip() for f in args.drop.split(",") if f.strip()}
         for lst in (NUMS, FEATS, FEATS_UNMATCHED):
@@ -296,6 +329,16 @@ def main() -> None:
     pred = apply_day_fault(pred, val, np.nan_to_num(val["D"].to_numpy(), nan=0.0),
                            normal, shares)
     val["pred"] = pred
+    pv = apply_p(val, p_clf)
+    isd = (val["D"].notna() & (val["y"] - val["D"]).abs().le(TOL)).to_numpy()
+    hasd = val["D"].notna().to_numpy()
+    bins = [0, .05, .2, .4, .6, .8, 1.01]
+    cal = []
+    for lo, hi in zip(bins[:-1], bins[1:]):
+        m = hasd & (pv >= lo) & (pv < hi)
+        if m.sum():
+            cal.append(f"{pv[m].mean():.3f}/{isd[m].mean():.3f}")
+    print("p calibration (pred/actual by bin):", "  ".join(cal))
     print("day-fault shares per D band (q=P[y==D], r=P[y==86400+taxi]):",
           [(round(q, 2), round(r, 2)) for q, r in shares])
 

@@ -58,7 +58,11 @@ uv run scripts/upload_submission.py submissions/resilient-kiwi_vN.parquet
 ```
 
 `model_gbm.py` prints a per-airport table, a ranking-weighted estimate,
-and a **stable-only** estimate that excludes LIRF and LFPG. Judge changes
+a **stable-only** estimate that excludes LIRF and LFPG, and the stable
+figure for January and July separately. Experiment switches: `--drop`
+(remove features), `--add arr_day` (same-day arrival state, validated
+neutral), `--p-rounds` / `--p-seeds` (classifier polish, validated
+neutral); none is used for the best submission. Judge changes
 by the stable figure: the headline number is dominated by a handful of
 corrupted records at those two airports and swings on luck (see
 `notes/FINDINGS.md`).

@@ -204,6 +204,54 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         FROM turn
     """)
 
+    # --- same-day airfield state from arrivals ---
+    # The scored days' arrival taxi-in times are in the ranking file, so the
+    # whole day's arrivals (not just the preceding hour) are a legitimate,
+    # observable measure of the surface state: a snow day, strike or closure
+    # shows in every arrival all day. Diurnal-adjusted hourly departure taxi
+    # correlates with the same-day arrival mean at partial r 0.19 (LFPG),
+    # 0.15 (LIRF), 0.12 (LEMD), 0.11 (EGLL) after the 60-minute window.
+    # Fallback arrivals (on-block recorded at scheduled time) are excluded:
+    # their taxi-in is landing minus schedule, not a taxi time. The
+    # departure's own hour is excluded so the feature complements the
+    # 60-minute window rather than duplicating it.
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE arrhour AS
+        SELECT apt, date_trunc('hour', mvt_time) AS h, date_trunc('day', mvt_time) AS d,
+               sum(y) AS s, count(*) AS n
+        FROM mv
+        WHERE phase='ARR' AND mvt_time IS NOT NULL AND y BETWEEN 60 AND 7200
+          AND NOT (block IS NOT NULL AND sched IS NOT NULL
+                   AND abs(epoch(block - sched)) <= 120)
+        GROUP BY 1, 2, 3
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE arrday AS
+        SELECT apt, d, sum(s) AS s, sum(n) AS n FROM arrhour GROUP BY 1, 2
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE arrprev6 AS
+        SELECT apt, h,
+               sum(s) OVER w AS s6, sum(n) OVER w AS n6
+        FROM arrhour
+        WINDOW w AS (PARTITION BY apt ORDER BY h
+                     RANGE BETWEEN INTERVAL 6 HOUR PRECEDING
+                               AND INTERVAL 1 HOUR PRECEDING)
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE arrstate AS
+        SELECT d.mvt_id,
+               (ad.s - coalesce(ah.s, 0)) / nullif(ad.n - coalesce(ah.n, 0), 0)
+                   AS arr_taxi_day,
+               (ad.n - coalesce(ah.n, 0)) AS arr_taxi_day_n,
+               p6.s6 / nullif(p6.n6, 0) AS arr_taxi_prev6h
+        FROM (SELECT mvt_id, apt, coalesce(aobt, sched, mvt_time) AS ref
+              FROM mv WHERE phase='DEP') d
+        LEFT JOIN arrday ad ON ad.apt = d.apt AND ad.d = date_trunc('day', d.ref)
+        LEFT JOIN arrhour ah ON ah.apt = d.apt AND ah.h = date_trunc('hour', d.ref)
+        LEFT JOIN arrprev6 p6 ON p6.apt = d.apt AND p6.h = date_trunc('hour', d.ref)
+    """)
+
     # --- flight-plan revision state, per flight and as an airport nowcast ---
     # For matched flights the residual error is the gap between NM's
     # off-block stamp and the airport's. That gap is clustered within the
@@ -260,6 +308,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
                coalesce(aq.arr_queue, 0) AS arr_queue,
                {', '.join(f'thr.takeoff_prev{w}, thr.landing_prev{w}' for w in WINDOWS_MIN)},
                sd.sched_dep_60, nowc.arr_taxi_mean60, nowc.dep_recov_mean60,
+               ast.arr_taxi_day, ast.arr_taxi_day_n, ast.arr_taxi_prev6h,
                turn.turnaround_sec, turn.inbound_delay, turn.inbound_taxi_in,
                extract(hour FROM m.mvt_time) AS hr,
                extract(dow  FROM m.mvt_time) AS dow,
@@ -271,6 +320,7 @@ def build(con: duckdb.DuckDBPyConnection, source: str, table: str,
         LEFT JOIN thr   ON thr.mvt_id = m.mvt_id
         LEFT JOIN sd    ON sd.mvt_id = m.mvt_id
         LEFT JOIN nowc  ON nowc.mvt_id = m.mvt_id
+        LEFT JOIN arrstate ast ON ast.mvt_id = m.mvt_id
         LEFT JOIN turn  ON turn.mvt_id = m.mvt_id
         LEFT JOIN plan  ON plan.mvt_id = m.mvt_id
         WHERE m.phase = 'DEP'
