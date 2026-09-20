@@ -1429,3 +1429,34 @@ behind super, 241 s light-behind-super) but worth +0.25 s — congestion
 aggregates and own wake category already hold it; for distance, target-
 encode (airport, stand, runway) median taxi rather than a map (we tested
 target encoding earlier: no gain over the categoricals).
+
+### ADS-B pilot, 15 Jul 2025 (adsb.lol, 3.55 GB, 73,800 traces, 6,935 ground segments)
+
+Matching: same airport, same callsign (`CALLSIGN_flt`), trace lift-off
+within 3 min of `MVT_TIME`. Candidates for off-block: first ground
+observation at the airport, first observation moving (≥3 kt).
+
+| apt  | departures | matched | trace first-moving vs block: median / RMSE / within 60 s | AOBT_3 vs block: median / RMSE / within 60 s |
+|------|-----------:|--------:|---------------------------------------------------------:|---------------------------------------------:|
+| EHAM | 718 | 94% | **−1 s / 236 / 56%** | −99 / 367 / 26% |
+| EDDF | 676 | 80% | +374 / 466 / 10% | −102 / 215 / 22% |
+| LIRF | 472 | 88% | +664 / 780 / 2% | +175 / 442 / 21% |
+| LSZH | 399 | 86% | +275 / 514 / 31% | +18 / 234 / 24% |
+| LEBL | 527 | 75% | +346 / 600 / 13% | +62 / 375 / 21% |
+| LEMD | 618 | 21% | +332 / 434 / 7% | −55 / 226 / 19% |
+| EGLL | 672 | 17% | +897 / 1073 / 0% | −55 / 414 / 25% |
+| LFPG | 707 | 2% | — | — |
+| EDDM | 518 | 0% (1 segment all day) | — | — |
+| LTFM | 803 | 0% | — | — |
+
+Reading: at Schiphol the transponder is on at pushback and the trace
+*is* the block time — on the 37 flights where AOBT_3 is >10 min from
+block, the trace sides with block 37 times (median gap 76 s vs 1,015 s).
+Everywhere else the trace begins 5–11 min *after* block (taxi start, not
+pushback) with a spread wider than AOBT_3's, so it is a lagged proxy with
+an airport-specific offset, not a second witness. EDDM/LTFM zero is a
+detection question (fl340 reports EDDM as best-covered): the `"ground"`
+literal is probably not set on those feeds; being checked. Unmatched-to-
+NM departures (no `CALLSIGN_flt`) cannot be matched by callsign; a
+`FLIGHT_mvt` → ICAO callsign map derived from matched rows would cover
+them if ever needed.
