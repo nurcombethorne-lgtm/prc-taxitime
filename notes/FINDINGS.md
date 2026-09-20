@@ -1401,3 +1401,31 @@ perfect day-effect model would recover well under 1 s from those rows.
 `--add arr_day`; the default model reproduces v14. With the organisers
 now watching for plateau-and-step submission patterns, near-identical
 uploads are also to be avoided on their own account.
+
+## 20 Sep — Discord 15–19 Sep: open ADS-B trajectories are admissible
+
+Standing 71st of 167 at 296.47; seven teams now under 246 (probing
+cluster grew); dataset unchanged since 4 Sep.
+
+Rulings (espinielli, 19 Sep) in reply to fl340, who showed that
+`MVT_TIME − AOBT_3` nearly reveals the target and that off-block time
+can be recovered from ADS-B ground traces (adsb.lol; at EDDM ~40% of
+departures have their first observation at the gate; coverage poor at
+LFPG, LIRF, LEMD, LTFM):
+
+- "the model is for post-ops, not for tactical use." — our formulation
+  (take-off and AOBT_3 as inputs) is the intended one.
+- "there are no such restrictions: if you can find open trajectory data
+  with good ground coverage and extract off-block times, we are ok.
+  Practically speaking it won't be possible." — **open ADS-B archives
+  are admissible** when declared. The 3 Sep ruling was about OpenSky's
+  own (credentialed) state vectors, not open archives.
+- Individuals are prize-eligible (to piyush7911).
+
+Also: espinielli asked whether anyone uses wake-turbulence sequencing
+or gate-to-runway distance. GREKI: wake sequence is real (median
+take-off gap 113 s medium-behind-medium, 148 s behind heavy, 182 s
+behind super, 241 s light-behind-super) but worth +0.25 s — congestion
+aggregates and own wake category already hold it; for distance, target-
+encode (airport, stand, runway) median taxi rather than a map (we tested
+target encoding earlier: no gain over the categoricals).
