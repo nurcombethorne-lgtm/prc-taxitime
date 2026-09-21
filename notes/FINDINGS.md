@@ -1460,3 +1460,17 @@ literal is probably not set on those feeds; being checked. Unmatched-to-
 NM departures (no `CALLSIGN_flt`) cannot be matched by callsign; a
 `FLIGHT_mvt` → ICAO callsign map derived from matched rows would cover
 them if ever needed.
+
+**EDDM/LTFM zero is real, not detection.** Scan of every trace point
+inside the boxes on 15 Jul 2025: EHAM 330,700 `"ground"` points (plus
+46k low-altitude); LFPG 1,174 ground points; EDDM 4 ground points and
+8,276 low-altitude points of which only 63 are below 40 kt (runway and
+final, not taxi); LTFM 129 points, all high. adsb.lol has no surface
+coverage at Munich or Istanbul on this day, so the pilot's coverage
+table stands. Net: the open ADS-B route is a genuine second witness at
+**EHAM only** (errors independent of AOBT_3, r 0.07; either witness
+within 60 s on 66% of departures; mean-of-two RMSE 208 vs 368/236),
+a lagged, wider-spread proxy at EDDF/LIRF/LSZH/LEBL/LEMD, and absent
+at EDDM/LTFM/LFPG/EGLL. Headline ceiling from EHAM (11% of rows, model
+already at 191 s): ~2–3 s. Cost: every scored day's archive regardless
+(62 days ≈ 225 GB) plus ~20 training days for the feature to be learnt.
