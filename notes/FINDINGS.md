@@ -1474,3 +1474,19 @@ a lagged, wider-spread proxy at EDDF/LIRF/LSZH/LEBL/LEMD, and absent
 at EDDM/LTFM/LFPG/EGLL. Headline ceiling from EHAM (11% of rows, model
 already at 191 s): ~2–3 s. Cost: every scored day's archive regardless
 (62 days ≈ 225 GB) plus ~20 training days for the feature to be learnt.
+
+### 22 Sep — full pull started; January coverage differs from July
+
+`adsb_pull.py` streams 100 days (36 training with ground truth, 64
+scored); ~210 s per day. `adsb_features.py` builds table `adsb`;
+`model_gbm.py --add adsb` enables the group. Declared in README.
+
+Pilot evaluator on **6 Jan 2025** (vs 15 Jul): EDDM is covered in
+January (96% matched; first observation median +28 s from block, 43%
+within 60 s; on the 30 rows where AOBT_3 is >10 min off, the trace is
+closer 97% of the time, median gap 197 s vs 902 s). EGLL 45% matched
+(Jul 17%). LEMD/LFPG/LIRF/LTFM zero in January (LIRF 88% in July). At
+the lagged airports the trace still beats AOBT_3 on 78–90% of the
+large-error rows (EDDF 90%, LEBL 78%, EGLL 77%) — the rows that carry
+the RMSE. Coverage is a feeder question that varies by season, so the
+tree needs `adsb_day_covered` and per-airport learning; both in place.
