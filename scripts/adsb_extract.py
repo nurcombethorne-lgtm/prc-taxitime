@@ -124,6 +124,12 @@ def main() -> None:
             rows.extend(r)
             if i % 50000 == 0:
                 print(f"  {i:,} files, {len(rows):,} segments", flush=True)
+    if not rows:
+        # No ground segment at any of the ten airports: the day's archive is
+        # empty or has no surface coverage. Write nothing so the day counts as
+        # uncovered in adsb_features.py rather than as covered-with-no-trace.
+        print(f"no ground segments on this day; nothing written for {dest.stem}")
+        return
     df = pd.DataFrame(rows)
     df.to_parquet(dest, index=False)
     print(f"wrote {len(df):,} segments -> {dest}")
