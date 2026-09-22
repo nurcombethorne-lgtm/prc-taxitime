@@ -1502,3 +1502,11 @@ Both months improve; the per-airport pattern is the coverage map (gains
 at the five covered airports, nothing at LEMD/LTFM/LFPG). Passes the
 pre-committed rule with only a quarter of validation days covered;
 every scored day will be. Covered-day split measured next.
+
+**Covered-day split (harness line added):** stable-only on the 16
+covered validation days 231.9 → **221.0 (−10.9 s)**; on uncovered days
+223.2 → 223.3 (no change, no leakage through the coverage flag). Since
+every scored day is being pulled, the transferable estimate is ~10 s
+stable-only, ~7–9 s on the headline, conditional on 2026 surface coverage
+matching 2025's. Plan: when the 64 scored days are extracted, rebuild
+`adsb`, build the submission with `--add adsb`, validate, upload as v16.
