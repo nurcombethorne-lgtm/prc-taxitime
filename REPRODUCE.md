@@ -51,6 +51,8 @@ Re-runs skip files already present at the right size.
 uv run scripts/features.py                    # ~5 min -> data/features.duckdb
 uv run scripts/fetch_weather.py               # METAR history, ~16 MB -> data/weather/
 uv run scripts/weather_features.py            # joins weather onto features.duckdb
+uv run scripts/adsb_pull.py                   # optional: adsb.lol ground traces, ~100 days x 3-4 GB streamed
+uv run scripts/adsb_features.py               # joins traces onto features.duckdb (table adsb)
 uv run scripts/model_gbm.py --dry-run         # validation only
 uv run scripts/model_gbm.py                   # + writes submissions/resilient-kiwi_vN.parquet
 uv run scripts/validate_submission.py submissions/resilient-kiwi_vN.parquet
@@ -160,6 +162,10 @@ Live pipeline:
 | `features.py` | build `data/features.duckdb` |
 | `fetch_weather.py` | download METAR history for the ten airports (IEM archive) |
 | `weather_features.py` | join weather onto the feature set (`wx` table) |
+| `adsb_pull.py` | stream adsb.lol daily archives, keep ground segments only |
+| `adsb_extract.py` | ground segments (first observation, first moving, lift-off) per aircraft per airport |
+| `adsb_features.py` | join traces onto the feature set (`adsb` table) |
+| `adsb_pilot.py` | one-day evaluation of trace off-block times against block time |
 | `model_gbm.py` | **the model** — produced submissions v3 through v14 |
 | `check_dataset.py` | detect a re-issued competition dataset |
 | `leaderboard.py` | read standings from the API (the public notebook is broken) |

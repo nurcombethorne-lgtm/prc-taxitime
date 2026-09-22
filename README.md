@@ -31,8 +31,16 @@ from the Iowa Environmental Mesonet ASOS/METAR archive (Iowa State
 University, https://mesonet.agron.iastate.edu/request/download.phtml) —
 an open, freely redistributable archive of routine aerodrome weather
 reports. Fetched by `scripts/fetch_weather.py` into `data/weather/`
-(gitignored, ~16 MB). No OpenSky state-vector data is used; the organisers
-ruled it inadmissible on 3 Sep 2026.
+(gitignored, ~16 MB).
+
+**ADS-B ground traces** from the adsb.lol open archive
+(https://github.com/adsblol/globe_history_2026, one release per day,
+Open Database License / CC0). Only ground segments at the ten airports
+are kept (`scripts/adsb_extract.py`), one small parquet per day in
+`data/adsb/segments/` (gitignored). The organisers ruled on 19 Sep 2026
+that open trajectory archives may be used to extract off-block times if
+declared. No OpenSky state-vector data is used; the organisers ruled it
+inadmissible on 3 Sep 2026.
 
 ## Setup
 

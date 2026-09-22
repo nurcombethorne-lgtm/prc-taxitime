@@ -99,7 +99,14 @@ FEATS_UNMATCHED = [f for f in FEATS if f not in MATCHED_ONLY]
 #   UTC day excluding the flight's own hour, plus the preceding 6 h).
 #   Inert by construction: 2025 holds no severely disrupted day at LFPG,
 #   LSZH, LIRF or LTFM for the tree to learn from (see notes, 16 Sep).
-OPTIONAL = {"arr_day": ["arr_taxi_day", "arr_taxi_day_n", "arr_taxi_prev6h"]}
+OPTIONAL = {"arr_day": ["arr_taxi_day", "arr_taxi_day_n", "arr_taxi_prev6h"],
+            # adsb.lol ground traces (open, ODbL/CC0), see adsb_features.py.
+            "adsb": ["adsb_day_covered", "adsb_present", "adsb_taxi_moving",
+                     "adsb_taxi_firstobs", "adsb_moving_vs_aobt",
+                     "adsb_firstobs_vs_aobt", "adsb_wait_before_moving",
+                     "adsb_n_ground"]}
+# Optional features that need the row's own AOBT_3 go to the matched model only.
+OPTIONAL_MATCHED_ONLY = {"adsb_moving_vs_aobt", "adsb_firstobs_vs_aobt"}
 
 PARAMS = dict(objective="regression", metric="rmse", learning_rate=0.05,
               num_leaves=255, min_data_in_leaf=100, feature_fraction=0.9,
@@ -297,7 +304,11 @@ def main() -> None:
     print(f"classifier: {P_ROUNDS} rounds x {len(P_SEEDS)} seed(s)")
     for grp in [g.strip() for g in args.add.split(",") if g.strip()]:
         for f in OPTIONAL[grp]:
-            NUMS.append(f); FEATS.append(f); MATCHED_ONLY.append(f)
+            NUMS.append(f); FEATS.append(f)
+            if grp == "arr_day" or f in OPTIONAL_MATCHED_ONLY:
+                MATCHED_ONLY.append(f)
+            else:
+                FEATS_UNMATCHED.append(f)
         print(f"added optional group {grp}: {OPTIONAL[grp]}")
     if args.drop:
         gone = {f.strip() for f in args.drop.split(",") if f.strip()}
@@ -306,8 +317,9 @@ def main() -> None:
         print(f"dropped features: {sorted(gone)}")
 
     con = duckdb.connect(str(DB), read_only=True)
-    df = con.sql("""SELECT t.*, w.* EXCLUDE (mvt_id)
+    df = con.sql("""SELECT t.*, w.* EXCLUDE (mvt_id), b.* EXCLUDE (mvt_id)
                     FROM train_feat t LEFT JOIN wx w USING (mvt_id)
+                    LEFT JOIN adsb b USING (mvt_id)
                     WHERE t.y IS NOT NULL AND t.y > 0""").df()
     con.close()
 
@@ -407,8 +419,9 @@ def main() -> None:
     boosters = fit_normal(full)
 
     con = duckdb.connect(str(DB), read_only=True)
-    rk = con.sql("""SELECT r.*, w.* EXCLUDE (mvt_id)
-                    FROM rank_feat r LEFT JOIN wx w USING (mvt_id)""").df()
+    rk = con.sql("""SELECT r.*, w.* EXCLUDE (mvt_id), b.* EXCLUDE (mvt_id)
+                    FROM rank_feat r LEFT JOIN wx w USING (mvt_id)
+                    LEFT JOIN adsb b USING (mvt_id)""").df()
     con.close()
     rkp = prep(rk.copy())
     for c in CATS:  # align category levels with training
