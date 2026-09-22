@@ -1490,3 +1490,15 @@ the lagged airports the trace still beats AOBT_3 on 78–90% of the
 large-error rows (EDDF 90%, LEBL 78%, EGLL 77%) — the rows that carry
 the RMSE. Coverage is a feeder question that varies by season, so the
 tree needs `adsb_day_covered` and per-airport learning; both in place.
+
+### 23 Sep — ADS-B group in validation (34 training days extracted, 16 of the 62 validation days covered)
+
+| config      | headline | stable | Jan   | Jul   | EDDF | EDDM | EHAM | LEBL | LSZH | LEMD | LTFM |
+|-------------|---------:|-------:|------:|------:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|
+| baseline    | 332.5 | 225.2 | 204.6 | 240.5 | 193.5 | 184.2 | 190.6 | 234.7 | 217.5 | 184.8 | 263.7 |
+| + adsb      | 330.6 | **222.6** | 202.2 | 237.6 | 188.2 | 181.6 | 185.7 | 229.8 | 211.2 | 184.6 | 263.4 |
+
+Both months improve; the per-airport pattern is the coverage map (gains
+at the five covered airports, nothing at LEMD/LTFM/LFPG). Passes the
+pre-committed rule with only a quarter of validation days covered;
+every scored day will be. Covered-day split measured next.

@@ -402,6 +402,27 @@ def main() -> None:
             mm += n * r2
         parts.append(f"{'Jan' if m == 1 else 'Jul'} {(mm / mw) ** 0.5:.1f}s")
     print("stable-only by month: " + "   ".join(parts))
+    # When ADS-B coverage is partial in validation but complete in the
+    # ranking set, the covered-day figure is the one that transfers.
+    if "adsb_day_covered" in val.columns:
+        parts = []
+        for flag in (1, 0):
+            mw = mm = 0.0
+            for apt, grp in mix.groupby("apt"):
+                if apt in ("LIRF", "LFPG"):
+                    continue
+                keep = grp[grp["n"] >= 0.01 * grp["n"].sum()]
+                months = sorted(int(m) for m in keep["mon"].unique())
+                sub = val[(val["apt"] == apt) & (val["mon"].isin(months))
+                          & (val["adsb_day_covered"] == flag)]
+                if len(sub) == 0:
+                    continue
+                mw += grp["n"].sum()
+                mm += grp["n"].sum() * float(np.mean((sub["pred"] - sub["y"]) ** 2))
+            if mw:
+                parts.append(f"{'covered' if flag else 'uncovered'} days {(mm / mw) ** 0.5:.1f}s")
+        cov = float(val["adsb_day_covered"].mean())
+        print(f"stable-only by ADS-B coverage ({cov:.0%} of val rows covered): " + "   ".join(parts))
     print("  scored: v1 511.88  v2 458.24  v3 314.42  v4 300.48  v5 297.01  v7 292.22")
 
     imp = pd.Series(boosters["matched"][0].feature_importance("gain"),
