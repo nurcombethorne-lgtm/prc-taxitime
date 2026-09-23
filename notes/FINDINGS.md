@@ -1519,3 +1519,15 @@ covered days 221.5). Uploaded by hand.
 
 **v16 = 285.75 (−10.7 s on v14; best).** Transfer exceeded the 7–9 s
 estimate, consistent with 2026 coverage being wider than 2025's.
+
+**Unmatched-to-NM departures (no callsign): time-only trace matching
+closed.** On covered 2025 days, 2,675 such departures; a unique free
+trace lifting off within 90 s exists for 10–81% of them by airport, but
+the same rule applied to matched departures (where the callsign reveals
+the truth) picks the right aircraft only 74.7% of the time. A feature
+wrong one time in four on 1.5% of rows, learnt from ~1,000 training
+rows, is worth well under a second. Not built.
+
+Second tranche of 41 training days pulling (23 Sep) to sharpen the
+per-airport trace behaviour; compare 139-day vs 98-day model in
+validation before any v17.

@@ -33,6 +33,10 @@ def days() -> list[date]:
     # the feature is learnt from fit rows and not only from the two scored
     # months: two days per month, a weekday and a weekend.
     train += [date(2025, m, d) for m in (2, 3, 4, 5, 6, 8, 9, 10, 11, 12) for d in (10, 21)]
+    # Second tranche (23 Sep): three more days per fit month and four more per
+    # scored month of 2025, to sharpen the per-airport trace behaviour.
+    train += [date(2025, m, d) for m in (2, 3, 4, 5, 6, 8, 9, 10, 11, 12) for d in (4, 15, 27)]
+    train += [date(2025, 1, d) for d in (3, 10, 17, 30)] + [date(2025, 7, d) for d in (1, 8, 22, 29)]
     return train + scored
 
 
