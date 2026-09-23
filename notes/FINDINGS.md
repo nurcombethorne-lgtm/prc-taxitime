@@ -1516,3 +1516,6 @@ coverage 56.7% of scored departures matched to a trace (training days
 51.8%); 2026 surface coverage is wider than 2025's (LEMD/LFPG/LIRF now
 present in January). Validation unchanged from the dry-run (stable 222.9,
 covered days 221.5). Uploaded by hand.
+
+**v16 = 285.75 (−10.7 s on v14; best).** Transfer exceeded the 7–9 s
+estimate, consistent with 2026 coverage being wider than 2025's.

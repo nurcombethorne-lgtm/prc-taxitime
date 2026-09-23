@@ -1,7 +1,7 @@
 # Reproducing the submission
 
-This reproduces `resilient-kiwi_v14.parquet`, our best scoring submission
-(RMSE **296.47** on the regenerated 344,841-row ranking set issued on
+This reproduces `resilient-kiwi_v16.parquet`, our best scoring submission
+(RMSE **285.75** on the regenerated 344,841-row ranking set issued on
 4 Sep 2026). Scores from before that re-issue (v1-v8, best 291.59) were
 against a smaller, easier test set and are not comparable.
 
@@ -51,10 +51,10 @@ Re-runs skip files already present at the right size.
 uv run scripts/features.py                    # ~5 min -> data/features.duckdb
 uv run scripts/fetch_weather.py               # METAR history, ~16 MB -> data/weather/
 uv run scripts/weather_features.py            # joins weather onto features.duckdb
-uv run scripts/adsb_pull.py                   # optional: adsb.lol ground traces, ~100 days x 3-4 GB streamed
+uv run scripts/adsb_pull.py                   # adsb.lol ground traces, ~100 days x 3-4 GB streamed (~8 h)
 uv run scripts/adsb_features.py               # joins traces onto features.duckdb (table adsb)
-uv run scripts/model_gbm.py --dry-run         # validation only
-uv run scripts/model_gbm.py                   # + writes submissions/resilient-kiwi_vN.parquet
+uv run scripts/model_gbm.py --dry-run --add adsb   # validation only
+uv run scripts/model_gbm.py --add adsb             # + writes submissions/resilient-kiwi_vN.parquet
 uv run scripts/validate_submission.py submissions/resilient-kiwi_vN.parquet
 uv run scripts/upload_submission.py submissions/resilient-kiwi_vN.parquet
 ```
@@ -166,7 +166,7 @@ Live pipeline:
 | `adsb_extract.py` | ground segments (first observation, first moving, lift-off) per aircraft per airport |
 | `adsb_features.py` | join traces onto the feature set (`adsb` table) |
 | `adsb_pilot.py` | one-day evaluation of trace off-block times against block time |
-| `model_gbm.py` | **the model** — produced submissions v3 through v14 |
+| `model_gbm.py` | **the model** — produced submissions v3 through v16 (v16 = `--add adsb`) |
 | `check_dataset.py` | detect a re-issued competition dataset |
 | `leaderboard.py` | read standings from the API (the public notebook is broken) |
 | `validate_submission.py` | enforce the organisers' row constraints |
