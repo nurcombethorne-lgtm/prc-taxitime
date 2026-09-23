@@ -1531,3 +1531,17 @@ rows, is worth well under a second. Not built.
 Second tranche of 41 training days pulling (23 Sep) to sharpen the
 per-airport trace behaviour; compare 139-day vs 98-day model in
 validation before any v17.
+
+### 23 Sep (evening) — second tranche: 134 training-plus-scored days
+
+| config (validation, `--add adsb`) | stable | Jan | Jul | EDDF | EDDM | EHAM | LEBL | LSZH | LEMD | LTFM |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 98 days (v16)  | 222.7 | 202.3 | 237.7 | 188.2 | 181.6 | 185.7 | 229.8 | 211.2 | 184.6 | 263.4 |
+| 134 days       | **220.5** | 199.7 | 235.7 | 183.2 | 177.7 | 181.2 | 226.7 | 206.9 | 184.3 | 264.1 |
+
+Both months improve; every covered airport improves, the uncovered pair
+does not move. Part of the stable gain is more validation days now
+covered (38% of rows vs 25%), but the per-airport pattern on the same
+rows is the model learning the trace better. Built as **v17** (v16 +
+36 more training days). Two June 2025 days have no adsb.lol release;
+15 Oct 2025 had one corrupt trace member (extractor now skips it).
