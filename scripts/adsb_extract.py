@@ -45,11 +45,13 @@ def which_apt(lat: float, lon: float) -> str | None:
 
 
 def load(path: str) -> dict | None:
-    with open(path, "rb") as fh:
-        head = fh.read(2)
-        fh.seek(0)
-        raw = gzip.open(fh).read() if head == b"\x1f\x8b" else fh.read()
+    # A single corrupt member in the day's archive (seen 2025-10-15: zlib
+    # "invalid distance too far back") must not cost the whole day.
     try:
+        with open(path, "rb") as fh:
+            head = fh.read(2)
+            fh.seek(0)
+            raw = gzip.open(fh).read() if head == b"\x1f\x8b" else fh.read()
         return json.loads(raw)
     except Exception:
         return None
