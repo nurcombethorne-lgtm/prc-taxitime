@@ -130,3 +130,4 @@ are not comparable with those above.
 | v13 | predict the scheduled-time fallback outright on the LIRF subgroup | 301.70 |
 | v14 | flight-plan revision gaps (LOBT/IOBT) + airport-state nowcast | **296.47** |
 | v15 | v14 without the month feature (year-transfer test; null) | 296.56 |
+| v16 | adsb.lol ground traces as a second off-block witness (`--add adsb`) | pending |

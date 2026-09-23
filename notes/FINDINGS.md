@@ -1510,3 +1510,9 @@ every scored day is being pulled, the transferable estimate is ~10 s
 stable-only, ~7–9 s on the headline, conditional on 2026 surface coverage
 matching 2025's. Plan: when the 64 scored days are extracted, rebuild
 `adsb`, build the submission with `--add adsb`, validate, upload as v16.
+
+**v16 built 23 Sep** (`model_gbm.py --add adsb`, 98 segment days): ranking
+coverage 56.7% of scored departures matched to a trace (training days
+51.8%); 2026 surface coverage is wider than 2025's (LEMD/LFPG/LIRF now
+present in January). Validation unchanged from the dry-run (stable 222.9,
+covered days 221.5). Uploaded by hand.
