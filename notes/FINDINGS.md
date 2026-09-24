@@ -1545,3 +1545,9 @@ covered (38% of rows vs 25%), but the per-airport pattern on the same
 rows is the model learning the trace better. Built as **v17** (v16 +
 36 more training days). Two June 2025 days have no adsb.lol release;
 15 Oct 2025 had one corrupt trace member (extractor now skips it).
+
+**v17 = 284.56 (−1.2 s on v16; best; 53rd/185 on 24 Sep).** Validation
+predicted −2.2 stable-only; the board gave about half, consistent with
+part of the validation gain being extra covered validation days rather
+than model. Diminishing: 36 more days bought 1.2 s. The remaining ~230
+days of 2025 would cost ~19 h of pull for perhaps another second.

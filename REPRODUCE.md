@@ -1,7 +1,7 @@
 # Reproducing the submission
 
-This reproduces `resilient-kiwi_v16.parquet`, our best scoring submission
-(RMSE **285.75** on the regenerated 344,841-row ranking set issued on
+This reproduces `resilient-kiwi_v17.parquet`, our best scoring submission
+(RMSE **284.56** on the regenerated 344,841-row ranking set issued on
 4 Sep 2026). Scores from before that re-issue (v1-v8, best 291.59) were
 against a smaller, easier test set and are not comparable.
 
@@ -166,7 +166,7 @@ Live pipeline:
 | `adsb_extract.py` | ground segments (first observation, first moving, lift-off) per aircraft per airport |
 | `adsb_features.py` | join traces onto the feature set (`adsb` table) |
 | `adsb_pilot.py` | one-day evaluation of trace off-block times against block time |
-| `model_gbm.py` | **the model** — produced submissions v3 through v16 (v16 = `--add adsb`) |
+| `model_gbm.py` | **the model** — produced submissions v3 through v17 (v16/v17 = `--add adsb`) |
 | `check_dataset.py` | detect a re-issued competition dataset |
 | `leaderboard.py` | read standings from the API (the public notebook is broken) |
 | `validate_submission.py` | enforce the organisers' row constraints |
