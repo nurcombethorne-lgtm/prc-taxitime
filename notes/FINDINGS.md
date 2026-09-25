@@ -1551,3 +1551,15 @@ predicted −2.2 stable-only; the board gave about half, consistent with
 part of the validation gain being extra covered validation days rather
 than model. Diminishing: 36 more days bought 1.2 s. The remaining ~230
 days of 2025 would cost ~19 h of pull for perhaps another second.
+
+## 25 Sep — trace-derived surface counts: null
+
+`adsb_taxiing` (aircraft moving on the surface at the departure's
+off-block reference, from every traced aircraft, not only NM-matched)
+and `adsb_liftoffs_prev15`. Raw correlation with the matched-lane gap
+0.16–0.25 at EDDF/EDDM/LEBL/LSZH/LIRF, orthogonal to `dep_queue`
+(which itself is ~0 against the gap). In the harness with the adsb
+group already present: stable 220.5 vs 220.4, covered days 211.5 vs
+211.4 — the take-off throughput and plan-nowcast features already carry
+it. Kept as opt-in group `adsb_surf`, not used. Standing 56th/192;
+jolly-lobster 225.84 (59 submissions), five seconds clear of second.

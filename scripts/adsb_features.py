@@ -53,9 +53,34 @@ def main() -> None:
                OR (s.t_first_air IS NULL AND d.t_off - s.t_last_ground BETWEEN 0 AND 360)
         ) WHERE rn = 1
     """)
+    # Surface state from ALL traced aircraft at the airport (not only
+    # NM-matched flights): how many are taxiing at the departure's off-block
+    # reference time, and how many lifted off in the preceding 15 min.
+    # Raw correlation with the matched-lane gap 0.16-0.25 at EDDF/EDDM/LEBL/
+    # LSZH/LIRF, essentially orthogonal to dep_queue (25 Sep).
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE ref AS
+        SELECT MVT_ID_mvt mvt_id, ADEP_mvt apt,
+               epoch(coalesce(AOBT_3_flt, SCHED_TIME_UTC_mvt, MVT_TIME_UTC_mvt)) t_ref
+        FROM read_parquet(['{DATA_DIR}/training_*.parquet', '{DATA_DIR}/ranking.parquet'])
+        WHERE PHASE_mvt = 'DEP'
+    """.replace("{DATA_DIR}", str(DATA_DIR)))
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE mov AS
+        SELECT apt, t_first_moving tm, coalesce(t_first_air, t_last_ground) ta
+        FROM seg WHERE t_first_moving IS NOT NULL
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE surf AS
+        SELECT r.mvt_id,
+               (SELECT count(*) FROM mov s WHERE s.apt = r.apt AND s.tm < r.t_ref AND s.ta > r.t_ref) AS adsb_taxiing,
+               (SELECT count(*) FROM mov s WHERE s.apt = r.apt AND s.ta BETWEEN r.t_ref - 900 AND r.t_ref) AS adsb_liftoffs_prev15
+        FROM ref r
+    """)
     con.sql("""
         CREATE OR REPLACE TABLE adsb AS
         SELECT d.mvt_id,
+               sf.adsb_taxiing, sf.adsb_liftoffs_prev15,
                (c.d IS NOT NULL)::INT              AS adsb_day_covered,
                (m.mvt_id IS NOT NULL)::INT         AS adsb_present,
                d.t_off - m.t_first_moving          AS adsb_taxi_moving,
@@ -67,6 +92,7 @@ def main() -> None:
         FROM dep d
         LEFT JOIN covered c ON c.d = d.d
         LEFT JOIN m ON m.mvt_id = d.mvt_id
+        LEFT JOIN surf sf ON sf.mvt_id = d.mvt_id
     """)
     print(con.sql("""
         SELECT CASE WHEN mvt_id IN (SELECT mvt_id FROM rank_feat) THEN 'rank' ELSE 'train' END s,
