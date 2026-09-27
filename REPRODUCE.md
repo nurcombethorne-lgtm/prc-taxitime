@@ -53,8 +53,8 @@ uv run scripts/fetch_weather.py               # METAR history, ~16 MB -> data/we
 uv run scripts/weather_features.py            # joins weather onto features.duckdb
 uv run scripts/adsb_pull.py                   # adsb.lol ground traces, ~100 days x 3-4 GB streamed (~8 h)
 uv run scripts/adsb_features.py               # joins traces onto features.duckdb (table adsb)
-uv run scripts/model_gbm.py --dry-run --add adsb   # validation only
-uv run scripts/model_gbm.py --add adsb             # + writes submissions/resilient-kiwi_vN.parquet
+uv run scripts/model_gbm.py --dry-run --add adsb,adsb_pos   # validation only
+uv run scripts/model_gbm.py --add adsb,adsb_pos             # + writes submissions/resilient-kiwi_vN.parquet
 uv run scripts/validate_submission.py submissions/resilient-kiwi_vN.parquet
 uv run scripts/upload_submission.py submissions/resilient-kiwi_vN.parquet
 ```
