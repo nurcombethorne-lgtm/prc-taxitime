@@ -294,6 +294,8 @@ def main() -> None:
     ap.add_argument("--add", default="",
                     help="comma-separated OPTIONAL groups to enable (matched "
                          "model only), e.g. --add arr_day")
+    ap.add_argument("--save-val", default="",
+                    help="write per-row validation predictions to this parquet")
     ap.add_argument("--p-rounds", type=int, default=None)
     ap.add_argument("--p-seeds", type=int, default=None,
                     help="number of seed-averaged classifiers (default 1)")
@@ -353,6 +355,14 @@ def main() -> None:
         if m.sum():
             cal.append(f"{pv[m].mean():.3f}/{isd[m].mean():.3f}")
     print("p calibration (pred/actual by bin):", "  ".join(cal))
+    if args.save_val:
+        keep = ["mvt_id", "apt", "mon", "y", "D", "recov", "pred"]
+        keep += [c for c in ("adsb_day_covered", "adsb_present", "adsb_taxi_moving") if c in val.columns]
+        out = val[keep].copy()
+        out["p"] = apply_p(val, p_clf)
+        out["normal"] = normal
+        out.to_parquet(args.save_val, index=False)
+        print(f"saved validation rows -> {args.save_val}")
     print("day-fault shares per D band (q=P[y==D], r=P[y==86400+taxi]):",
           [(round(q, 2), round(r, 2)) for q, r in shares])
 

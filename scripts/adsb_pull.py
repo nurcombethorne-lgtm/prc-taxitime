@@ -37,16 +37,36 @@ def days() -> list[date]:
     # scored month of 2025, to sharpen the per-airport trace behaviour.
     train += [date(2025, m, d) for m in (2, 3, 4, 5, 6, 8, 9, 10, 11, 12) for d in (4, 15, 27)]
     train += [date(2025, 1, d) for d in (3, 10, 17, 30)] + [date(2025, 7, d) for d in (1, 8, 22, 29)]
-    return train + scored
+    # Third tranche (27 Sep): every remaining day of January and July 2025,
+    # the two scored months, after other teams reported that a small sample
+    # of days was what had made the traces look unhelpful.
+    train += [date(2025, 1, 1) + timedelta(d) for d in range(31)]
+    train += [date(2025, 7, 1) + timedelta(d) for d in range(31)]
+    seen, out = set(), []
+    for d in train + scored:
+        if d not in seen:
+            seen.add(d); out.append(d)
+    return out
 
 
 def assets(day: date) -> list[str]:
     repo = f"globe_history_{day.year}"
-    tag = f"v{day:%Y.%m.%d}-planes-readsb-prod-0"
-    url = f"https://api.github.com/repos/adsblol/{repo}/releases/tags/{tag}"
-    with urllib.request.urlopen(url, timeout=60) as r:
-        rel = json.load(r)
-    return [a["browser_download_url"] for a in rel["assets"] if ".tar." in a["name"]]
+    # Some days are published only under a replica tag (see
+    # PREFERRED_RELEASES.txt in the adsblol repos); try them in order.
+    last = None
+    for suffix in ("prod-0", "staging-0", "prod-0tmp", "staging-0tmp"):
+        tag = f"v{day:%Y.%m.%d}-planes-readsb-{suffix}"
+        url = f"https://api.github.com/repos/adsblol/{repo}/releases/tags/{tag}"
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r:
+                rel = json.load(r)
+        except Exception as e:
+            last = e
+            continue
+        urls = [a["browser_download_url"] for a in rel["assets"] if ".tar" in a["name"]]
+        if urls:
+            return urls
+    raise last or RuntimeError("no release")
 
 
 def run(cmd: list[str]) -> None:

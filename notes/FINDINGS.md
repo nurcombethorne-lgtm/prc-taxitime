@@ -1563,3 +1563,42 @@ group already present: stable 220.5 vs 220.4, covered days 211.5 vs
 211.4 — the take-off throughput and plan-nowcast features already carry
 it. Kept as opt-in group `adsb_surf`, not used. Standing 56th/192;
 jolly-lobster 225.84 (59 submissions), five seconds clear of second.
+
+## 27 Sep — Discord 22–27 Sep: what the legitimate 225–240 teams do
+
+Standing 62nd/195 at 284.56; top five 224.5–233.9; dataset unchanged.
+
+- **SoK ("Le", rank 3), 24 Sep:** uses adsb.lol, weather, and the
+  apt.dat files of ten airport packs from the X-Plane Scenery Gateway
+  "for the Stands List and coordinates".
+- **GREKI, 25 Sep:** had tried adsb.lol on a couple of days and dropped
+  it; after SoK's post pulled "the full Jan and Jul of both years. Turns
+  out the small sample was the problem, not the data."
+- **GREKI, 27 Sep (methodology):** (1) validate on the scored months —
+  train on January, test on July and vice versa; 12-month CV and random
+  or day folds misled them; (2) check every input for 2025→2026 drift:
+  "adsb.lol's receiver network changed between the years, so features
+  encoding where an aircraft was heard didn't transfer; features
+  describing its movement did"; (3) keep rows where the record
+  contradicts the sensor; (4) correct a strong base model; a second
+  model family on the same inputs helped more than new features.
+- **piyush7911, 27 Sep:** stuck at 237–240, 2025-only training, no board
+  tuning, uses adsb.lol; 1% of rows carry two-thirds of their squared
+  error (scheduled/default block values, and airports without surface
+  coverage: Istanbul, Rome in July). Implied bulk RMSE ≈ 137 s — far
+  below ours, so our 45 s gap to them is ordinary modelling.
+- **lbragado, 22 Sep:** got past ~257 by "working deeply with the
+  outliers".
+- **Disclaimer, 25 Sep:** "missing" archive days are under replica tags
+  (`-staging-0`, `-prod-0tmp`, `-staging-0tmp`), per
+  PREFERRED_RELEASES.txt; corrupt archives usually have an intact replica.
+- **Organiser:** open data usable (26 Sep, re adsb.lol incl. a flight's
+  own ground positions: "open data sources can be usable to devise a
+  better model"); hidden stage "possibly a 1 final submission", not
+  decided; `_mvt` is APDF, `_flt` is NM. **Unanswered:** whether the
+  published January/July 2026 monthly average taxi-out per airport/runway
+  (ansperformance.eu dashboard) may be a model input — we do not use it
+  without a ruling.
+
+Actions: third tranche pulling every remaining January/July 2025 day
+(tag fallback added); movement features from trace positions next.
