@@ -1633,3 +1633,27 @@ itself. Matcher rebuilt as a cascade with `adsb_match_kind` as a
 feature. Extractor now schema 3 (aircraft type and registration from
 the trace header, movement features); all 176 days re-pulling, January
 and July 2025 first.
+
+### 27 Sep — cascade matcher: sound, small
+
+Coverage: 2,692 of 5,290 no-NM-record departures in the ranking set now
+have a trace; overall ranking coverage 56.7% → 59.0%. Validation stable
+220.4 → 218.9, but six more January days became covered in between.
+**Like-for-like on identical rows (days covered in both runs): 260.1 →
+259.4; stable airports 210.9 → 210.8.** No-NM genuine class 1,001 → 974.
+
+Why so little: on traced no-NM genuine rows the trace used directly
+(take-off − first moving) has RMSE ~1,000 s, no better than the model
+(944). Median absolute model error is 203 s; 22 of 1,090 rows miss by
+>3,000 s and carry the class. They are rows where the recorded block is
+hours from when the aircraft moved (y = 11,032 s with a 154 s trace), and
+LIRF rows where the fallback classifier said p = 1.0 on a genuine label.
+A sensor of what happened cannot say what the record says. The class is
+a tail lottery; the 23 Sep *conclusion* (little to gain) stands, though
+the reasoning then (row share) was wrong.
+
+Reference, matched genuine traced rows: model 179 s, recov alone 383,
+trace alone (debiased) 684. Where traces exist the model is already in
+the range the 225–240 teams imply; the remaining gap is coverage and
+scored-season training days. Next: v18 = cascade + all January/July
+2025 days; movement features once fit-month days are re-extracted.

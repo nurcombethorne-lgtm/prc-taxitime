@@ -32,6 +32,9 @@ def main() -> None:
     print(f"{len(files)} segment days")
     con = duckdb.connect(str(DB))
     con.sql(f"CREATE OR REPLACE TEMP TABLE seg AS SELECT *, upper(trim(callsign)) cs FROM read_parquet({[str(f) for f in files]!r}, union_by_name=true)")
+    for col, typ in (("path_m", "DOUBLE"), ("stopped_s", "DOUBLE"), ("n_stops", "BIGINT"),
+                     ("max_gs", "DOUBLE"), ("actype", "VARCHAR"), ("reg", "VARCHAR")):
+        con.sql(f"ALTER TABLE seg ADD COLUMN IF NOT EXISTS {col} {typ}")   # old-schema days
     con.sql(f"CREATE OR REPLACE TEMP TABLE covered AS SELECT unnest({days!r}::DATE[]) AS d")
     con.sql(f"""
         CREATE OR REPLACE TEMP TABLE dep0 AS
