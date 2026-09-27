@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import math
 import os
 import sys
 from collections import Counter
@@ -63,11 +64,13 @@ def process(path: str) -> list[dict]:
         return []
     t0 = d.get("timestamp", 0)
     hexid = d.get("icao")
+    actype = d.get("t")      # ICAO aircraft type from the trace header
+    reg = d.get("r")         # registration
     pts = []
     for e in d["trace"]:
         if len(e) < 9 or e[1] is None or e[2] is None:
             continue
-        pts.append((t0 + e[0], e[1], e[2], e[3], e[4], e[6] or 0, e[8]))
+        pts.append((t0 + e[0], e[1], e[2], e[3], e[4], e[6] or 0, e[8], e[5]))
     out = []
     run = []          # current ground run at one airport
 
@@ -76,6 +79,7 @@ def process(path: str) -> list[dict]:
             return
         apt = run[0][0]
         first = run[0][1]
+        first_track = first[7]
         moving = next((p for _, p in run if (p[4] or 0) >= MOVING_KT), None)
         last = run[-1][1]
         air = None
@@ -91,7 +95,40 @@ def process(path: str) -> list[dict]:
                 if p[0] > last[0] and isinstance(p[6], dict) and p[6].get("flight"):
                     cs[p[6]["flight"].strip()] += 1
                     break
+        # Movement along the surface (GREKI, 27 Sep: features describing
+        # the aircraft's movement transfer between years; features encoding
+        # where it was heard do not).
+        path_m = 0.0
+        stopped_s = 0.0
+        n_stops = 0
+        max_gs = 0.0
+        was_moving = False
+        started = False
+        prev = None
+        for _, p in run:
+            gs = p[4] or 0.0
+            if moving is not None and p[0] >= moving[0]:
+                started = True
+            if started and prev is not None:
+                dt = p[0] - prev[0]
+                if 0 < dt <= 300:
+                    dlat = (p[1] - prev[1]) * 111_320.0
+                    dlon = (p[2] - prev[2]) * 111_320.0 * math.cos(math.radians(p[1]))
+                    path_m += math.hypot(dlat, dlon)
+                    if gs < 1.0 and (prev[4] or 0.0) < 1.0:
+                        stopped_s += dt
+            if started:
+                if gs < 1.0 and was_moving:
+                    n_stops += 1
+                was_moving = gs >= MOVING_KT
+                max_gs = max(max_gs, gs)
+            prev = p
         out.append(dict(
+            schema=3, actype=actype, reg=reg, path_m=path_m, stopped_s=stopped_s, n_stops=n_stops,
+            max_gs=max_gs, lat_last=last[1], lon_last=last[2],
+            lat_moving=moving[1] if moving else None,
+            lon_moving=moving[2] if moving else None,
+            track_first=first_track,
             hex=hexid, apt=apt,
             callsign=cs.most_common(1)[0][0] if cs else None,
             t_first_ground=first[0], t_first_moving=moving[0] if moving else None,

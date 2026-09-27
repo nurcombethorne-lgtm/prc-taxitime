@@ -75,7 +75,16 @@ def run(cmd: list[str]) -> None:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    todo = [d for d in days() if not (OUT / f"{d}.parquet").exists()]
+    def done(d: date) -> bool:
+        f = OUT / f"{d}.parquet"
+        if not f.exists():
+            return False
+        import pyarrow.parquet as pq
+        return "actype" in pq.read_schema(f).names      # schema 3: movement + aircraft type/registration
+
+    # Scored months of 2025 first, then the rest of 2025, then the 2026 days.
+    order = sorted(days(), key=lambda d: (d.year == 2026, d.month not in (1, 7), d))
+    todo = [d for d in order if not done(d)]
     print(f"{len(todo)} days to do", flush=True)
     for day in todo:
         t0 = time.time()

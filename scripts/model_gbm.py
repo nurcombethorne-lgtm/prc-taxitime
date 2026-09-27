@@ -101,12 +101,15 @@ FEATS_UNMATCHED = [f for f in FEATS if f not in MATCHED_ONLY]
 #   LSZH, LIRF or LTFM for the tree to learn from (see notes, 16 Sep).
 OPTIONAL = {"arr_day": ["arr_taxi_day", "arr_taxi_day_n", "arr_taxi_prev6h"],
             # adsb.lol ground traces (open, ODbL/CC0), see adsb_features.py.
-            "adsb": ["adsb_day_covered", "adsb_present", "adsb_taxi_moving",
+            "adsb": ["adsb_day_covered", "adsb_present", "adsb_match_kind", "adsb_taxi_moving",
                      "adsb_taxi_firstobs", "adsb_moving_vs_aobt",
                      "adsb_firstobs_vs_aobt", "adsb_wait_before_moving",
                      "adsb_n_ground"],
             # surface-state counts from all traced aircraft (see adsb_features.py)
-            "adsb_surf": ["adsb_taxiing", "adsb_liftoffs_prev15"]}
+            "adsb_surf": ["adsb_taxiing", "adsb_liftoffs_prev15"],
+            # how the aircraft moved on the surface (schema-2 segments)
+            "adsb_move": ["adsb_path_m", "adsb_stopped_s", "adsb_n_stops",
+                          "adsb_max_gs", "adsb_gs_first", "adsb_mean_speed"]}
 # Optional features that need the row's own AOBT_3 go to the matched model only.
 OPTIONAL_MATCHED_ONLY = {"adsb_moving_vs_aobt", "adsb_firstobs_vs_aobt"}
 

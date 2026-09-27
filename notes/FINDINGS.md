@@ -1602,3 +1602,34 @@ Standing 62nd/195 at 284.56; top five 224.5–233.9; dataset unchanged.
 
 Actions: third tranche pulling every remaining January/July 2025 day
 (tag fallback added); movement features from trace positions next.
+
+### 27 Sep — where our validation error sits (v17 configuration, per-row dump)
+
+Top 1% of rows carry 67.2% of squared error (piyush7911 reports the
+same two-thirds), but the RMSE of our other 99% is 189 s against their
+implied ~137 s. By class, after setting aside 7 day-fault rows
+(y > 80,000 s, 23.6% of squared error, unpredictable):
+
+| class | rows | % sq err | RMSE |
+|---|---:|---:|---:|
+| matched, genuine label | 285,563 | 52.2 | 228 |
+| **no NM record, genuine label** | 4,973 | **33.1** | **1,374** |
+| matched, schedule-fallback label | 53,359 | 11.0 | 242 |
+| no NM record, fallback label | 340 | 3.8 | 1,778 |
+
+Matched genuine rows with a trace: RMSE 173.5; without (covered day)
+256.9; uncovered day 231.6. The no-NM-record class is 1.5% of rows and a
+third of the error, mostly flights whose true taxi was under 30 min
+(4,630 rows, RMSE 957) that the unmatched model cannot place.
+
+**Correction to 23 Sep.** I closed trace-matching for these flights as
+"worth well under a second" because they were 1.5% of rows. That weighed
+them by row share; by error share they are the largest reducible block.
+Re-tested with better keys (precision measured on rows where the NM
+callsign is known): lift-off time alone 82.6%; **airline prefix +
+lift-off within 90 s, unique: 96.7%**; **callsign guessed from the
+flight number: 99.9%**. `FLIGHT_mvt` is frequently the ICAO callsign
+itself. Matcher rebuilt as a cascade with `adsb_match_kind` as a
+feature. Extractor now schema 3 (aircraft type and registration from
+the trace header, movement features); all 176 days re-pulling, January
+and July 2025 first.
