@@ -1657,3 +1657,24 @@ trace alone (debiased) 684. Where traces exist the model is already in
 the range the 225–240 teams imply; the remaining gap is coverage and
 scored-season training days. Next: v18 = cascade + all January/July
 2025 days; movement features once fit-month days are re-extracted.
+
+### 27 Sep — distance from stand at first observation: passes
+
+Stand positions learnt from the traces (median first position of
+aircraft stationary when first heard, per stand, ≥5 samples; no external
+file). `adsb_dist_stand_m` = distance from that point to where this
+aircraft was first heard; `adsb_gs_first` = its speed then. Paired
+dry-runs on identical segment files:
+
+| config | stable | Jan | Jul | covered days | EDDF | EDDM | EGLL | EHAM | LEBL | LSZH | LEMD | LTFM |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| adsb (cascade) | 216.6 | 190.6 | 235.4 | 204.4 | 177.6 | 169.9 | 276.7 | 171.1 | 222.4 | 199.6 | 184.4 | 264.1 |
+| + adsb_pos | **214.8** | 187.7 | 234.4 | **201.0** | 174.8 | 166.8 | 274.3 | 169.4 | 219.7 | 197.9 | 184.0 | 263.3 |
+
+Drift (median metres, 2025 Jan+Jul → 2026): EGLL 358 → 43, LEBL 336 →
+102, LIRF 740 → 313, EHAM 41 → 22, LSZH 41 → 54. The receiver network
+hears aircraft nearer the stand in 2026 — the shift GREKI warned about.
+The feature is physical (metres of taxi already covered), so the shift
+moves more 2026 rows into the regime where the trace witnesses the block
+time; to be confirmed on the board. Goes into v18 with the cascade and
+the full January/July 2025 training days.

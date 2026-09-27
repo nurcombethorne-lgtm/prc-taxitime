@@ -39,7 +39,7 @@ def main() -> None:
     con.sql(f"""
         CREATE OR REPLACE TEMP TABLE dep0 AS
         SELECT MVT_ID_mvt mvt_id, ADEP_mvt apt, upper(trim(CALLSIGN_flt)) cs,
-               upper(trim(FLIGHT_mvt)) flt,
+               upper(trim(FLIGHT_mvt)) flt, STAND_mvt stand,
                epoch(MVT_TIME_UTC_mvt) t_off, epoch(AOBT_3_flt) t_aobt,
                MVT_TIME_UTC_mvt::DATE d
         FROM read_parquet(['{DATA_DIR}/training_*.parquet', '{DATA_DIR}/ranking.parquet'])
@@ -93,6 +93,27 @@ def main() -> None:
             FROM cand c
         ) WHERE rn = 1 AND (kind < 4 OR n4 = 1)
     """)
+    # Stand positions learnt from the traces themselves: the median first
+    # position of aircraft that were stationary when first heard, per stand.
+    # The distance from that point to where THIS aircraft was first heard
+    # measures how much of the taxi the trace missed (at EDDF/LEBL the
+    # transponder comes alive mid-taxi, 5-6 min after block).
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE standpos AS
+        SELECT d.apt, d.stand, median(m.lat0) slat, median(m.lon0) slon, count(*) n
+        FROM m JOIN dep d USING (mvt_id)
+        WHERE d.stand IS NOT NULL AND m.kind <= 3 AND coalesce(m.gs_first, 0) < 1
+        GROUP BY 1, 2 HAVING count(*) >= 5
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE pos AS
+        SELECT m.mvt_id,
+               sqrt(pow((m.lat0 - sp.slat) * 111320.0, 2)
+                  + pow((m.lon0 - sp.slon) * 111320.0 * cos(radians(m.lat0)), 2)) AS adsb_dist_stand_m
+        FROM m JOIN dep d USING (mvt_id)
+        JOIN standpos sp ON sp.apt = d.apt AND sp.stand = d.stand
+    """)
+
     # Surface state from ALL traced aircraft at the airport (not only
     # NM-matched flights): how many are taxiing at the departure's off-block
     # reference time, and how many lifted off in the preceding 15 min.
@@ -124,6 +145,7 @@ def main() -> None:
                (c.d IS NOT NULL)::INT              AS adsb_day_covered,
                (m.mvt_id IS NOT NULL)::INT         AS adsb_present,
                m.kind                              AS adsb_match_kind,
+               pos.adsb_dist_stand_m,
                d.t_off - m.t_first_moving          AS adsb_taxi_moving,
                d.t_off - m.t_first_ground          AS adsb_taxi_firstobs,
                m.t_first_moving - d.t_aobt         AS adsb_moving_vs_aobt,
@@ -141,6 +163,7 @@ def main() -> None:
         LEFT JOIN covered c ON c.d = d.d
         LEFT JOIN m ON m.mvt_id = d.mvt_id
         LEFT JOIN surf sf ON sf.mvt_id = d.mvt_id
+        LEFT JOIN pos ON pos.mvt_id = d.mvt_id
     """)
     print(con.sql("""
         SELECT CASE WHEN mvt_id IN (SELECT mvt_id FROM rank_feat) THEN 'rank' ELSE 'train' END s,

@@ -107,9 +107,11 @@ OPTIONAL = {"arr_day": ["arr_taxi_day", "arr_taxi_day_n", "arr_taxi_prev6h"],
                      "adsb_n_ground"],
             # surface-state counts from all traced aircraft (see adsb_features.py)
             "adsb_surf": ["adsb_taxiing", "adsb_liftoffs_prev15"],
+            # where the aircraft was, relative to its stand, when first heard
+            "adsb_pos": ["adsb_dist_stand_m", "adsb_gs_first"],
             # how the aircraft moved on the surface (schema-2 segments)
             "adsb_move": ["adsb_path_m", "adsb_stopped_s", "adsb_n_stops",
-                          "adsb_max_gs", "adsb_gs_first", "adsb_mean_speed"]}
+                          "adsb_max_gs", "adsb_mean_speed"]}
 # Optional features that need the row's own AOBT_3 go to the matched model only.
 OPTIONAL_MATCHED_ONLY = {"adsb_moving_vs_aobt", "adsb_firstobs_vs_aobt"}
 
