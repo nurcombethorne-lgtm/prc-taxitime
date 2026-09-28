@@ -1686,3 +1686,11 @@ EDDM 159.0, LSZH 184.4, LEBL 208.4. Ranking coverage 59.0%.
 
 **v18 = 277.18 (−7.4 s on v17; best; 49th/195 on 28 Sep).** Validation
 predicted −12 stable-only. Trace line total so far: 296.47 → 277.18.
+
+### 28 Sep — movement features: null
+
+`adsb_move` (path length on the surface, stationary seconds, number of
+stops, maximum ground speed, mean speed) from schema-3 segments, paired
+dry-run on identical data with every validation day covered: stable
+208.3 → 208.5, no airport moves outside noise. The timing and
+stand-distance features already carry it. Kept opt-in, not used.

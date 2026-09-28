@@ -84,9 +84,11 @@ def blend_weights(P: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 
 def main() -> None:
+    M.enable_groups("adsb,adsb_pos")          # the v18 feature set
     con = duckdb.connect(str(M.DB), read_only=True)
-    df = con.sql("""SELECT t.*, w.* EXCLUDE (mvt_id) FROM train_feat t
+    df = con.sql("""SELECT t.*, w.* EXCLUDE (mvt_id), b.* EXCLUDE (mvt_id) FROM train_feat t
                     LEFT JOIN wx w USING (mvt_id)
+                    LEFT JOIN adsb b USING (mvt_id)
                     WHERE t.y IS NOT NULL AND t.y > 0""").df()
     mix = con.sql("SELECT apt, mon, count(*) n FROM rank_feat GROUP BY 1,2").df()
     con.close()

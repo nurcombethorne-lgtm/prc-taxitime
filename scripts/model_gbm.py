@@ -289,6 +289,20 @@ def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
     return out
 
 
+def enable_groups(spec: str) -> None:
+    """Switch on OPTIONAL feature groups (comma-separated names)."""
+    for grp in [g.strip() for g in spec.split(",") if g.strip()]:
+        for f in OPTIONAL[grp]:
+            if f in FEATS:
+                continue
+            NUMS.append(f); FEATS.append(f)
+            if grp == "arr_day" or f in OPTIONAL_MATCHED_ONLY:
+                MATCHED_ONLY.append(f)
+            else:
+                FEATS_UNMATCHED.append(f)
+        print(f"added optional group {grp}: {OPTIONAL[grp]}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -311,14 +325,7 @@ def main() -> None:
     if args.p_seeds:
         P_SEEDS = tuple(range(1, args.p_seeds + 1))
     print(f"classifier: {P_ROUNDS} rounds x {len(P_SEEDS)} seed(s)")
-    for grp in [g.strip() for g in args.add.split(",") if g.strip()]:
-        for f in OPTIONAL[grp]:
-            NUMS.append(f); FEATS.append(f)
-            if grp == "arr_day" or f in OPTIONAL_MATCHED_ONLY:
-                MATCHED_ONLY.append(f)
-            else:
-                FEATS_UNMATCHED.append(f)
-        print(f"added optional group {grp}: {OPTIONAL[grp]}")
+    enable_groups(args.add)
     if args.drop:
         gone = {f.strip() for f in args.drop.split(",") if f.strip()}
         for lst in (NUMS, FEATS, FEATS_UNMATCHED):
