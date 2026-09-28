@@ -1756,3 +1756,24 @@ a CatBoost residual model (`--cat-weight 0.5`): stable 208.3 → 207.7,
 headline 322.3 → 322.2, January 185.4 → 185.3, July 224.9 → 223.9.
 Below the noise floor; the three-seed average already banks most of it.
 Switch kept, default off.
+
+### 28 Sep — out-of-fold corrector (month folds): passes
+
+`experiment_corrector.py`. For each fit month the base pipeline is
+trained on the other fit months and predicts the held-out one; a small
+LightGBM (31 leaves, 500 min rows per leaf, L2 10, 300 rounds) learns
+`y − base_pred` on those out-of-fold rows from the features plus the base
+outputs. Rows with |base error| > 20,000 s are not taught (lottery rows).
+
+| config | headline | stable | Jan | Jul | EDDF | EDDM | EGLL | EHAM | LEBL | LEMD | LFPG | LIRF | LSZH | LTFM |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| base (v18) | 322.1 | 208.3 | 184.5 | 224.7 | 156 | 160 | 273 | 156 | 208 | 181 | 576 | 625 | 185 | 264 |
+| + 0.5 × corrector | 319.4 | 206.5 | 183.6 | 222.3 | 154 | 158 | 272 | 155 | 203 | 180 | 574 | 616 | 180 | 263 |
+| + 1.0 × corrector | **318.2** | **206.0** | 183.9 | 221.4 | 154 | 157 | 272 | 156 | 201 | 179 | 573 | 610 | 178 | 263 |
+
+Every airport improves or holds, both months improve. Corrector gain by
+feature: stand 20%, destination 16%, D 10%, runway 7%, base prediction
+6%. It is learning the base model's out-of-time error per stand and
+route — what a model fitted in-sample cannot see about itself. Built as
+**v19** with the corrector at full weight, trained on twelve month-folds;
+the LIRF force-D rows are left untouched.
