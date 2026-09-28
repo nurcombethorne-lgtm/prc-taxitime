@@ -1694,3 +1694,26 @@ stops, maximum ground speed, mean speed) from schema-3 segments, paired
 dry-run on identical data with every validation day covered: stable
 208.3 → 208.5, no airport moves outside noise. The timing and
 stand-distance features already carry it. Kept opt-in, not used.
+
+## 28 Sep — Discord 27–28 Sep
+
+- **Ruling (espinielli, 27 Sep 17:14)** on whether the monthly average
+  taxi-out per airport and per runway that ansperformance.eu publishes
+  for January and July 2026 may be a model input: "I already answered
+  above: yes" (open data, declared). Admissible.
+- **GREKI (27 Sep 22:13):** hedge rather than commit on the big rows;
+  second model is "another tree model, simple average of predictions";
+  the no-NM-record lane "is mostly luck. Nothing beat a calibrated
+  hedge, and rules learned on 2025 rarely carried over"; validation
+  tracks the board in direction, size only roughly.
+- **Vudueprajacu (28 Sep):** the planned-time echo in the off-block is
+  mostly a carrier effect when there is no NM match, stable month to
+  month; "a corrector trained on out-of-fold base preds (folds by month,
+  not by day) did more for us than new features"; two rows were ~30% of
+  their squared error on the Jan/Jul holdout; at airports without ground
+  ADS-B (IST, CDG, MAD) nothing external helped (ATFM delays, OPDI
+  ground time, METAR). GREKI agrees: gains there came from a stronger
+  base model.
+- **piyush7911 (28 Sep):** at 237–240 on the board their 2025 holdout is
+  219 (January) and 314 (July), full RMSE. Board/validation ≈ 0.87, the
+  same ratio as ours (277 / 322), so validation is a fair guide.
