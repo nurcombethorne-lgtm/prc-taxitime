@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
@@ -60,9 +61,20 @@ def assets(day: date) -> list[str]:
         try:
             with urllib.request.urlopen(url, timeout=60) as r:
                 rel = json.load(r)
-        except Exception as e:
+        except urllib.error.HTTPError as e:      # this tag does not exist: try the next replica
             last = e
             continue
+        except Exception as e:                   # network down: wait it out rather than skip the day
+            for _ in range(120):
+                time.sleep(60)
+                try:
+                    urllib.request.urlopen("https://api.github.com", timeout=30)
+                    break
+                except urllib.error.HTTPError:
+                    break
+                except Exception:
+                    continue
+            return assets(day)
         urls = [a["browser_download_url"] for a in rel["assets"] if ".tar" in a["name"]]
         if urls:
             return urls
