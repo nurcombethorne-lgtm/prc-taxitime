@@ -1683,3 +1683,6 @@ the full January/July 2025 training days.
 January/July 2025 day covered): validation stable-only **208.4** (v17
 220.4, pre-trace 225.2), Jan 185.5, Jul 225.1; EDDF 157.1, EHAM 156.6,
 EDDM 159.0, LSZH 184.4, LEBL 208.4. Ranking coverage 59.0%.
+
+**v18 = 277.18 (−7.4 s on v17; best; 49th/195 on 28 Sep).** Validation
+predicted −12 stable-only. Trace line total so far: 296.47 → 277.18.
