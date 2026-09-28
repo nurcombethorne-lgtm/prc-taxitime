@@ -1744,3 +1744,15 @@ Monthly published aggregates (ruled admissible 27 Sep): removing the
 per-airport-per-month mean bias is worth 325.14 → 324.84 in validation
 (per runway 324.76). Bias is +2 to +32 s nearly everywhere. Not pursued
 unless the 2026 cross-year bias turns out larger.
+
+### 28 Sep — second model family: within noise
+
+`experiment_ensemble.py` on the v18 feature set (single-seed members,
+fit on eight months): LightGBM residual 211.5 stable, CatBoost residual
+213.5, LightGBM raw 213.4; equal-weight blend 208.3 stable but 323.1 on
+the headline (the raw-target member is poor on the LFPG/LIRF tails).
+In the live harness, three-seed LightGBM vs the same averaged 50/50 with
+a CatBoost residual model (`--cat-weight 0.5`): stable 208.3 → 207.7,
+headline 322.3 → 322.2, January 185.4 → 185.3, July 224.9 → 223.9.
+Below the noise floor; the three-seed average already banks most of it.
+Switch kept, default off.

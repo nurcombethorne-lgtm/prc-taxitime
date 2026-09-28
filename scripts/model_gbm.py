@@ -49,6 +49,21 @@ P_PARAMS = dict(objective="binary", metric="binary_logloss", learning_rate=0.05,
                 verbose=-1, num_threads=0)
 P_ROUNDS = 300
 P_SEEDS = (1,)       # seed-averaged when len > 1 (--p-seeds)
+# Weight of a CatBoost residual model averaged into the matched-lane
+# prediction (--cat-weight). A second tree family on the same inputs: its
+# ordered target statistics treat stand / runway / operator differently.
+CAT_WEIGHT = 0.0
+CAT_PARAMS = dict(loss_function="RMSE", iterations=600, learning_rate=0.08,
+                  depth=8, l2_leaf_reg=3.0, random_seed=7, verbose=False,
+                  thread_count=-1, one_hot_max_size=4)
+
+
+def cat_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """CatBoost wants string categoricals with an explicit missing token."""
+    x = df[FEATS].copy()
+    for c in CATS:
+        x[c] = x[c].astype(str).where(x[c].notna(), "__NA__")
+    return x
 
 CATS = ["apt", "stand", "rwy", "actype", "wake", "operator", "segment", "ades"]
 # `unmatched` and `D` belong here even though the mixture also uses them:
@@ -267,6 +282,11 @@ def fit_normal(train: pd.DataFrame) -> dict:
             prm, lgb.Dataset(a[FEATS], a["y"] - a["recov"],
                              categorical_feature=CATS),
             num_boost_round=NUM_ROUNDS))
+    if CAT_WEIGHT > 0:
+        from catboost import CatBoostRegressor
+        cb = CatBoostRegressor(**CAT_PARAMS)
+        cb.fit(cat_frame(a), a["y"] - a["recov"], cat_features=CATS)
+        out["cat"] = cb
     out["unmatched"] = lgb.train(
         PARAMS, lgb.Dataset(b[FEATS_UNMATCHED], b["y"], categorical_feature=CATS),
         num_boost_round=NUM_ROUNDS_UNMATCHED) if len(b) > 500 else None
@@ -280,6 +300,8 @@ def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
     if m.any():
         sub = df.loc[m, FEATS]
         avg = np.mean([bst.predict(sub) for bst in boosters["matched"]], axis=0)
+        if "cat" in boosters:
+            avg = (1 - CAT_WEIGHT) * avg + CAT_WEIGHT * boosters["cat"].predict(cat_frame(df.loc[m]))
         out[m] = avg + df.loc[m, "recov"].to_numpy()
     if (~m).any():
         if boosters["unmatched"] is not None:
@@ -315,11 +337,16 @@ def main() -> None:
                          "model only), e.g. --add arr_day")
     ap.add_argument("--save-val", default="",
                     help="write per-row validation predictions to this parquet")
+    ap.add_argument("--cat-weight", type=float, default=0.0,
+                    help="weight of a CatBoost residual model in the matched lane")
     ap.add_argument("--p-rounds", type=int, default=None)
     ap.add_argument("--p-seeds", type=int, default=None,
                     help="number of seed-averaged classifiers (default 1)")
     args = ap.parse_args()
-    global P_ROUNDS, P_SEEDS
+    global P_ROUNDS, P_SEEDS, CAT_WEIGHT
+    CAT_WEIGHT = args.cat_weight
+    if CAT_WEIGHT:
+        print(f"CatBoost member weight {CAT_WEIGHT}")
     if args.p_rounds:
         P_ROUNDS = args.p_rounds
     if args.p_seeds:
