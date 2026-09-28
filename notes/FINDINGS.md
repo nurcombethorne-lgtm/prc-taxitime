@@ -1717,3 +1717,30 @@ stand-distance features already carry it. Kept opt-in, not used.
 - **piyush7911 (28 Sep):** at 237–240 on the board their 2025 holdout is
   219 (January) and 314 (July), full RMSE. Board/validation ≈ 0.87, the
   same ratio as ours (277 / 322), so validation is a fair guide.
+
+### 28 Sep — the board gap is lottery rows, not model quality
+
+v18-configuration validation, full RMSE: all 325.1, January 345.5,
+July 307.8. **Five rows with |error| > 20,000 s carry 33.7% of squared
+error**: LFPG 19 Jan (y = 84,240, no NM record, D = 1,740), LFPG 23 Jan
+(y = 58,206, D = 2,043), LIRF 30 Jul and 25 Jan (day faults, y ≈ 87,180,
+we predicted D ≈ 58,000–60,000), LIRF 28 Jul (y = 1,377 where the hedge
+said 22,175). LFPG January: the top two rows are 89.1% of its error
+(RMSE 803 → 265 without them).
+
+Without the five rows: **all 264.7, January 218.2, July 297.0.**
+piyush7911, at 237–240 on the board, reports 219 (January) and 314
+(July) on the same holdouts. Our model is level in January and better in
+July by their own figures.
+
+One row of ~60,000 s costs 60,000² / 344,841 ≈ 10,400 in MSE, i.e. about
++21 s at an RMSE of 240. The 40 s between 277 and 238 on the board is
+two such rows. They cannot be predicted from 2025 (v12's RMSE-optimal
+three-way hedge lost on the board; the force-D commitment of v13 won
+15 s), only resolved by probing, which we do not do. A hidden final
+stage would neutralise them.
+
+Monthly published aggregates (ruled admissible 27 Sep): removing the
+per-airport-per-month mean bias is worth 325.14 → 324.84 in validation
+(per runway 324.76). Bias is +2 to +32 s nearly everywhere. Not pursued
+unless the 2026 cross-year bias turns out larger.
