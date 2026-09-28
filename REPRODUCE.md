@@ -1,7 +1,7 @@
 # Reproducing the submission
 
-This reproduces `resilient-kiwi_v18.parquet`, our best scoring submission
-(RMSE **277.18** on the regenerated 344,841-row ranking set issued on
+This reproduces `resilient-kiwi_v19.parquet`, our best scoring submission
+(RMSE **272.81** on the regenerated 344,841-row ranking set issued on
 4 Sep 2026). Scores from before that re-issue (v1-v8, best 291.59) were
 against a smaller, easier test set and are not comparable.
 
@@ -54,7 +54,7 @@ uv run scripts/weather_features.py            # joins weather onto features.duck
 uv run scripts/adsb_pull.py                   # adsb.lol ground traces, ~100 days x 3-4 GB streamed (~8 h)
 uv run scripts/adsb_features.py               # joins traces onto features.duckdb (table adsb)
 uv run scripts/model_gbm.py --dry-run --add adsb,adsb_pos   # validation only
-uv run scripts/model_gbm.py --add adsb,adsb_pos             # + writes submissions/resilient-kiwi_vN.parquet
+uv run scripts/experiment_corrector.py --submit             # v18 model + out-of-fold corrector; writes submissions/resilient-kiwi_vN.parquet
 uv run scripts/validate_submission.py submissions/resilient-kiwi_vN.parquet
 uv run scripts/upload_submission.py submissions/resilient-kiwi_vN.parquet
 ```

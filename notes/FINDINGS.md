@@ -1777,3 +1777,6 @@ feature: stand 20%, destination 16%, D 10%, runway 7%, base prediction
 route — what a model fitted in-sample cannot see about itself. Built as
 **v19** with the corrector at full weight, trained on twelve month-folds;
 the LIRF force-D rows are left untouched.
+
+**v19 = 272.81 (−4.4 s on v18; best).** Validation predicted −3.9 on the
+headline. Since 22 Sep: 296.47 → 285.75 → 284.56 → 277.18 → 272.81.
