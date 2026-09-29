@@ -63,6 +63,11 @@ def _default_days() -> list[date]:
     # of days was what had made the traces look unhelpful.
     train += [date(2025, 1, 1) + timedelta(d) for d in range(31)]
     train += [date(2025, 7, 1) + timedelta(d) for d in range(31)]
+    # Fourth tranche (29 Sep): every remaining day of 2025. The scored set is
+    # 60-98% traced at EGLL and LEMD, which 2025 covered only partly, and a
+    # leave-one-airport-out test put the value of airport-specific traced
+    # training rows at ~18 s per airport (experiment_transfer.py).
+    train += [date(2025, 1, 1) + timedelta(d) for d in range(365)]
     seen, out = set(), []
     for d in train + scored:
         if d not in seen:

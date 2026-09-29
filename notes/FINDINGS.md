@@ -1798,3 +1798,29 @@ failures after the pull was taught to wait out network loss. Standing
 - Trino / OpenSky historical database: not allowed (restated).
 - `adsb_pull.py --ranking <file>` now derives the days from any ranking
   file, for a re-issue or a hidden final stage.
+
+### 29 Sep — scored-set coverage, and what an unseen airport costs
+
+Trace coverage on the 2026 scored departures (ours; arnavhm13's figures
+in brackets where given): EDDM 98/97% (Jan/Jul), EHAM 97/98, LSZH 95/95,
+LEBL 92/95, **EGLL 76/98, LEMD 97/60** [96/70], EDDF 58/45, LIRF 65/0.1
+[–/0], LFPG 5/5 [13], LTFM 0 [0]. Overall 62.5% January, 56.3% July.
+First heard within 150 m of the stand: EDDM 88/85%, EHAM 84/87, EGLL
+56/88, LSZH 69/60, LEMD 52/64, LEBL 48/59.
+
+EGLL and LEMD are 22% of the scored rows and were barely traced in the
+2025 training year. `experiment_transfer.py` simulates that: blank one
+well-covered airport's trace features in the fit months, score its
+traced January/July flights (matched, genuine labels, RMSE of `normal`):
+
+| airport | no trace | current, traces unseen in training | agnostic model | blend | trained with its traces |
+|---|---:|---:|---:|---:|---:|
+| EHAM | 176.5 | 158.8 | 234.5 | 176.1 | **137.5** |
+| EDDM | 179.4 | 147.8 | 147.0 | 129.9 | **129.9** |
+| LSZH | 178.5 | 149.3 | 194.6 | 158.9 | **132.3** |
+
+The live architecture already takes 18–32 s from a trace at an airport
+it never trained on; airport-specific traced rows are worth a further
+~18 s there. An airport-agnostic model is not a reliable substitute. So
+the lever is more 2025 days: fourth tranche (all remaining ~250 days of
+2025) started 29 Sep, ~21 h. v20 = the v19 pipeline refitted on it.
