@@ -22,7 +22,27 @@ TMP = ROOT / "data" / "adsb" / "tmp"
 EXTRACT = ROOT / "scripts" / "adsb_extract.py"
 
 
+def days_from_ranking(path: str) -> list[date]:
+    """Every departure date in a ranking file, so a re-issued or hidden-stage
+    dataset can be processed without editing this script:
+
+        uv run scripts/adsb_pull.py --ranking data/ranking.parquet
+    """
+    import duckdb
+    rows = duckdb.connect().sql(
+        f"SELECT DISTINCT MVT_TIME_UTC_mvt::DATE d FROM '{path}' WHERE PHASE_mvt='DEP' ORDER BY 1"
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def days() -> list[date]:
+    if "--ranking" in sys.argv:
+        extra = days_from_ranking(sys.argv[sys.argv.index("--ranking") + 1])
+        return [d for d in extra] + _default_days()
+    return _default_days()
+
+
+def _default_days() -> list[date]:
     scored = [date(2026, 1, 1) + timedelta(d) for d in range(32)]          # Jan 1 .. Feb 1
     scored += [date(2026, 7, 1) + timedelta(d) for d in range(32)]         # Jul 1 .. Aug 1
     # Training days with ground truth: the same weekdays spread across the

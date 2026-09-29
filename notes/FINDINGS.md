@@ -1780,3 +1780,21 @@ the LIRF force-D rows are left untouched.
 
 **v19 = 272.81 (−4.4 s on v18; best).** Validation predicted −3.9 on the
 headline. Since 22 Sep: 296.47 → 285.75 → 284.56 → 277.18 → 272.81.
+
+## 29 Sep — Discord 28–29 Sep; trace pull complete
+
+All 176 days re-extracted on schema 3 (112 of 2025, 64 of 2026), no
+failures after the pull was taught to wait out network loss. Standing
+43rd/202 at 272.81; dataset unchanged.
+
+- Disclaimer: a second model family made their score worse (ours: within
+  noise).
+- arnavhm13: adsb.lol surface coverage on the 2026 scored set — MAD ~96%
+  of January and ~70% of July departures matched; CDG thin (~13%, ~3
+  points per track); IST essentially none; FCO none in July 2026. Their
+  2025 holdout is 357 (Jan) / 333 (Jul) full RMSE, January ~218 once
+  rows over an hour are cut — the same figure we get, and evidently what
+  the 219 quoted by piyush7911 also is.
+- Trino / OpenSky historical database: not allowed (restated).
+- `adsb_pull.py --ranking <file>` now derives the days from any ranking
+  file, for a re-issue or a hidden final stage.
