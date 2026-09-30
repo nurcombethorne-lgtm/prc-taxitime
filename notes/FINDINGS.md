@@ -1824,3 +1824,18 @@ it never trained on; airport-specific traced rows are worth a further
 ~18 s there. An airport-agnostic model is not a reliable substitute. So
 the lever is more 2025 days: fourth tranche (all remaining ~250 days of
 2025) started 29 Sep, ~21 h. v20 = the v19 pipeline refitted on it.
+
+## 30 Sep — interim v20: v19 pipeline on 243 trace days of 2025
+
+Full-2025 pull at 131 of 253 (through 8 Aug; slowed by the machine
+sleeping, resumed cleanly). Refit on what had landed — 307 segment days,
+training rows traced 330,595 → 737,091:
+
+| config | headline | stable | Jan | Jul | EDDF | EDDM | EGLL | EHAM | LEBL | LEMD | LSZH |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| v19 (112 days) base + corrector | 318.2 | 206.0 | 183.9 | 221.4 | 154 | 157 | 272 | 156 | 201 | 179 | 178 |
+| 243 days, base | 319.5 | 203.3 | 178.5 | 220.2 | 151 | 151 | 271 | 141 | 200 | 181 | 171 |
+| 243 days, base + corrector | **315.7** | **201.2** | 177.6 | 217.3 | 147 | 148 | 270 | 141 | 195 | 179 | 166 |
+
+Both months improve; every traced airport improves (EHAM −15, LSZH −12,
+EDDM −9, EDDF −7, LEBL −6); the untraced ones hold. Built as **v20**.
