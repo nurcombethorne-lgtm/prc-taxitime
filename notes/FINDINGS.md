@@ -1839,3 +1839,7 @@ training rows traced 330,595 → 737,091:
 
 Both months improve; every traced airport improves (EHAM −15, LSZH −12,
 EDDM −9, EDDF −7, LEBL −6); the untraced ones hold. Built as **v20**.
+
+**v20 = 271.29 (−1.5 s on v19; best; 41st/207 on 30 Sep).** Validation
+headline predicted −2.5. Traced airports are now near their floor; the
+remaining ~107 days of 2025 (Aug–Dec) should add well under a second.

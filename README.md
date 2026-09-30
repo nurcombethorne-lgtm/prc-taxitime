@@ -133,5 +133,5 @@ are not comparable with those above.
 | v16 | adsb.lol ground traces as a second off-block witness (`--add adsb`) | 285.75 |
 | v17 | v16 with 36 more ADS-B training days (135 days) | 284.56 |
 | v18 | all Jan/Jul 2025 trace days, cascade matcher, distance from stand at first observation | 277.18 |
-| v19 | v18 + out-of-fold corrector (month folds) | **272.81** |
-| v20 | v19 pipeline refitted on 243 trace days of 2025 (was 112) | pending |
+| v19 | v18 + out-of-fold corrector (month folds) | 272.81 |
+| v20 | v19 pipeline refitted on 243 trace days of 2025 (was 112) | **271.29** |

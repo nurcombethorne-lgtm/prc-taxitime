@@ -1,7 +1,7 @@
 # Reproducing the submission
 
-This reproduces `resilient-kiwi_v19.parquet`, our best scoring submission
-(RMSE **272.81** on the regenerated 344,841-row ranking set issued on
+This reproduces `resilient-kiwi_v20.parquet`, our best scoring submission
+(RMSE **271.29** on the regenerated 344,841-row ranking set issued on
 4 Sep 2026). Scores from before that re-issue (v1-v8, best 291.59) were
 against a smaller, easier test set and are not comparable.
 
