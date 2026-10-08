@@ -72,18 +72,43 @@ def main() -> None:
     # Cascade, most reliable first. kind: 1 NM callsign, 2 flight number as
     # callsign, 3 guessed callsign, 4 airline prefix + lift-off within 90 s
     # (accepted only when exactly one such trace exists).
+    #
+    # Two hash joins instead of one OR-join (which forced a nested loop and
+    # took hours at 400+ days): exact callsign keys, then airline prefix
+    # keyed on a 10-minute lift-off bucket (+/-1 bucket covers the 90 s
+    # window). Same rows as the single-join form.
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE cand_exact AS
+        SELECT d.mvt_id, s.*,
+               CASE WHEN s.cs = d.cs THEN 1 WHEN s.cs = d.flt THEN 2 ELSE 3 END AS kind,
+               coalesce(abs(s.t_first_air - d.t_off), abs(s.t_last_ground - d.t_off) + 60) AS dist
+        FROM dep d JOIN seg s ON s.apt = d.apt AND s.cs IN (d.cs, d.flt, d.cs_guess)
+        WHERE (s.t_first_air IS NOT NULL AND abs(s.t_first_air - d.t_off) <= 180)
+           OR (s.t_first_air IS NULL AND d.t_off - s.t_last_ground BETWEEN 0 AND 360)
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE seg_air AS
+        SELECT *, regexp_extract(cs, '^([A-Z]{3})', 1) AS ic,
+               (t_first_air // 600)::BIGINT AS bkt
+        FROM seg WHERE t_first_air IS NOT NULL AND cs IS NOT NULL
+    """)
+    con.sql("""
+        CREATE OR REPLACE TEMP TABLE cand_prefix AS
+        SELECT DISTINCT d.mvt_id, s.* EXCLUDE (ic, bkt), 4 AS kind,
+               abs(s.t_first_air - d.t_off) AS dist
+        FROM (SELECT d.*, (d.t_off // 600)::BIGINT + u.o AS bkt
+              FROM dep d, (SELECT unnest([-1, 0, 1]) AS o) u
+              WHERE d.ic IS NOT NULL AND d.ic <> '') d
+        JOIN seg_air s ON s.apt = d.apt AND s.ic = d.ic AND s.bkt = d.bkt
+        WHERE abs(s.t_first_air - d.t_off) <= 90
+    """)
     con.sql("""
         CREATE OR REPLACE TEMP TABLE cand AS
-        SELECT d.mvt_id, s.*, 
-               CASE WHEN s.cs = d.cs THEN 1 WHEN s.cs = d.flt THEN 2
-                    WHEN s.cs = d.cs_guess THEN 3 ELSE 4 END AS kind,
-               coalesce(abs(s.t_first_air - d.t_off), abs(s.t_last_ground - d.t_off) + 60) AS dist
-        FROM dep d JOIN seg s ON s.apt = d.apt
-         AND (   (s.cs IN (d.cs, d.flt, d.cs_guess)
-                  AND ((s.t_first_air IS NOT NULL AND abs(s.t_first_air - d.t_off) <= 180)
-                    OR (s.t_first_air IS NULL AND d.t_off - s.t_last_ground BETWEEN 0 AND 360)))
-              OR (d.ic IS NOT NULL AND d.ic <> '' AND starts_with(s.cs, d.ic)
-                  AND s.t_first_air IS NOT NULL AND abs(s.t_first_air - d.t_off) <= 90))
+        SELECT * FROM cand_exact
+        UNION ALL
+        SELECT * FROM cand_prefix p
+        WHERE NOT EXISTS (SELECT 1 FROM cand_exact e WHERE e.mvt_id = p.mvt_id
+                          AND e.hex = p.hex AND e.t_first_ground = p.t_first_ground)
     """)
     con.sql("""
         CREATE OR REPLACE TEMP TABLE m AS
