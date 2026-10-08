@@ -115,6 +115,12 @@ def main() -> None:
     """)
     stage("match: airline prefix")
     con.sql("""
+        CREATE OR REPLACE TEMP TABLE seg_air AS
+        SELECT *, regexp_extract(cs, '^([A-Z]{3})', 1) AS ic,
+               (t_first_air // 600)::BIGINT AS bkt
+        FROM seg_k WHERE t_first_air IS NOT NULL
+    """)
+    con.sql("""
         CREATE OR REPLACE TEMP TABLE cand_prefix AS
         SELECT DISTINCT d.mvt_id, s.* EXCLUDE (ic, bkt), 4 AS kind,
                abs(s.t_first_air - d.t_off) AS dist
