@@ -1843,3 +1843,37 @@ EDDM −9, EDDF −7, LEBL −6); the untraced ones hold. Built as **v20**.
 **v20 = 271.29 (−1.5 s on v19; best; 41st/207 on 30 Sep).** Validation
 headline predicted −2.5. Traced airports are now near their floor; the
 remaining ~107 days of 2025 (Aug–Dec) should add well under a second.
+
+## 8 Oct — final phase announced
+
+Email (Enrico Spinielli, 8 Oct 13:58) and Discord: a final phase with a
+**single blind submission** predicting four months — January and July
+2026 as before, plus **February and June 2026**. Rankings will be
+produced for the initial pair, the final pair, and all four combined;
+code and documentation of any team in the top 30 on either ranking will
+be reviewed ("human and AI-supported review ... probably in adversarial
+mode for AI"). The organiser's reason: "the signs of 'optimizing for the
+ranking' are too strong". Deadline for the final submission
+**2026-10-14T10:00Z** (noon CET). The model design "shouldn't change"
+after the original 11 Oct repo deadline; data-path commits are expected.
+
+Files: `final_ranking.parquet` (670,790 departures: Jan 152,650, Feb
+144,164, Jun 181,748, Jul 192,114, plus a few spill-over rows; same
+schema, block and taxi blanked, every old ranking id included) and
+`final_submitting.parquet`. Submission name per the rules page:
+`<team-name>_final.parquet`, five uploads a day. The organiser noted the
+take-off times are dithered by ±12 s between exports ("the randomness I
+had to introduce"): use the final file only.
+
+Pipeline: `PRC_FINAL=1` switches `s3util.RANKING_FILE` /
+`SUBMITTING_FILE` and the output name. Weather already covers both new
+months (IEM fetch ran to 1 Aug 2026). adsb.lol traces for the 60 new
+days pulling (`adsb_pull.py --ranking data/final_ranking.parquet`). The
+full-2025 pull finished 251/253 (2025-06-19 corrupt archive, 2025-12-31
+no release). Standing on the old board 64th/237 at 271.29: the field
+grew from 207 to 237 teams in a week.
+
+This phase favours us. The gap between our model and the 225–240 teams
+was the two or three unpredictable rows per month that score-probing
+resolves; probing cannot reach February and June, and the combined
+ranking halves the weight of the probed months.
