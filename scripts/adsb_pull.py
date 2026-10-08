@@ -133,8 +133,17 @@ def main() -> None:
             parts = []
             for u in urls:
                 p = TMP / u.rsplit("/", 1)[1]
-                run(["curl", "-sSL", "--retry", "8", "--retry-all-errors", "--retry-delay", "15",
-                     "-o", str(p), u])
+                # -C - resumes a partial file after a connection reset instead of
+                # restarting the 2 GB part from zero (8 Oct: resets every few
+                # minutes made a 6-minute day take an hour).
+                for attempt in range(12):
+                    r = subprocess.run(["curl", "-sSL", "-C", "-", "--retry", "3", "--retry-all-errors",
+                                        "--retry-delay", "10", "-o", str(p), u])
+                    if r.returncode == 0:
+                        break
+                    time.sleep(20)
+                else:
+                    raise RuntimeError(f"download failed after 12 attempts: {u}")
                 parts.append(p)
             with open(TMP / "all.tar", "wb") as fh:
                 for p in parts:
