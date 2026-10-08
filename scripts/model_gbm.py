@@ -346,6 +346,8 @@ def main() -> None:
                          "model only), e.g. --add arr_day")
     ap.add_argument("--save-val", default="",
                     help="write per-row validation predictions to this parquet")
+    ap.add_argument("--val-months", default="1,7",
+                    help="2025 months held out for validation (default 1,7)")
     ap.add_argument("--cat-weight", type=float, default=0.0,
                     help="weight of a CatBoost residual model in the matched lane")
     ap.add_argument("--p-rounds", type=int, default=None)
@@ -375,9 +377,10 @@ def main() -> None:
                     WHERE t.y IS NOT NULL AND t.y > 0""").df()
     con.close()
 
-    val_mask = df["mon"].isin([1, 7]) & (df["yr"] == 2025)
+    val_months = [int(m) for m in args.val_months.split(",")]
+    val_mask = df["mon"].isin(val_months) & (df["yr"] == 2025)
     fit, val = df[~val_mask].copy(), df[val_mask].copy()
-    print(f"fit {len(fit):,} / val {len(val):,}")
+    print(f"fit {len(fit):,} / val {len(val):,}  (validation months {val_months})")
 
     p_clf = fit_p(fit)
 
@@ -448,7 +451,7 @@ def main() -> None:
     # its own ranking rows). A pooled figure hides month-specific effects,
     # and a change has to improve both to count.
     parts = []
-    for m in (1, 7):
+    for m in val_months:
         mw = mm = 0.0
         for apt, grp in mix.groupby("apt"):
             if apt in ("LIRF", "LFPG"):
@@ -460,7 +463,8 @@ def main() -> None:
             r2 = float(np.mean((sub["pred"] - sub["y"]) ** 2))
             mw += n
             mm += n * r2
-        parts.append(f"{'Jan' if m == 1 else 'Jul'} {(mm / mw) ** 0.5:.1f}s")
+        if mw:
+            parts.append(f"month {m} {(mm / mw) ** 0.5:.1f}s")
     print("stable-only by month: " + "   ".join(parts))
     # When ADS-B coverage is partial in validation but complete in the
     # ranking set, the covered-day figure is the one that transfers.
