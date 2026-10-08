@@ -1877,3 +1877,25 @@ This phase favours us. The gap between our model and the 225–240 teams
 was the two or three unpredictable rows per month that score-probing
 resolves; probing cannot reach February and June, and the combined
 ranking halves the weight of the probed months.
+
+### 8 Oct — does the design hold on the new months? (2025 holdouts)
+
+Same pipeline, base model without the corrector, trace table on 444
+days, fit on the other ten 2025 months each time:
+
+| held out | headline | stable | per month | EDDF | EDDM | EGLL | EHAM | LEBL | LEMD | LFPG | LIRF | LSZH | LTFM |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Jan + Jul 2025 | 317.6 | 201.1 | Jan 178 / Jul 219 | 150 | 147 | 270 | 134 | 198 | 184 | 576 | 621 | 166 | 263 |
+| **Feb + Jun 2025** | 292.4 | 209.7 | Feb 251 / Jun 170 | 127 | 124 | 216 | 113 | 136 | 148 | 244 | 745 | 171 | 385 |
+
+The new months are easier at most airports (June especially) and worse
+at two: LTFM in February (385; Istanbul's February 2025 snow closure)
+and LIRF (745; its lottery rows fall differently). The weights are the
+final ranking set's (Jan/Feb/Jun/Jul). Nothing to change: the design is
+frozen and generalises at the same level as on the original months.
+
+Trace-table build (`adsb_features.py`) after the rewrite: 17 s for 444
+days, against two abandoned runs of over three hours each. Both the
+IN-list and the OR-join had silently become nested loops. Ranking
+coverage so far 58.9% of covered-day rows (February/June 2026 days still
+pulling).
