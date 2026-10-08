@@ -80,12 +80,11 @@ def submit() -> None:
     rkb["pred"] = np.clip(rkb["base_pred"].to_numpy() + delta, M.CLIP_LO, M.CLIP_HI)
     print(f"ranking rows {len(rkb):,}; mean |delta| {np.mean(np.abs(delta)):.1f}; forced rows untouched {int(forced.sum())}")
     M.SUBMISSIONS.mkdir(exist_ok=True)
-    n = len(list(M.SUBMISSIONS.glob(f"{M.TEAM_NAME}_v*.parquet"))) + 1
-    out = M.SUBMISSIONS / f"{M.TEAM_NAME}_v{n}.parquet"
+    out = M.next_submission_path()
     t = duckdb.connect()
     t.register("preds", rkb[["mvt_id", "pred"]])
     t.sql(f"""COPY (SELECT t.MVT_ID_mvt, round(coalesce(p.pred, 900))::INTEGER AS TAXITIME_SEC_mvt
-                    FROM read_parquet('{M.DATA_DIR / "submitting.parquet"}') t
+                    FROM read_parquet('{M.SUBMITTING_FILE}') t
                     LEFT JOIN preds p ON p.mvt_id = t.MVT_ID_mvt)
               TO '{out}' (FORMAT PARQUET)""")
     print(f"wrote {out}")

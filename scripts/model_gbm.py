@@ -32,7 +32,7 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
-from s3util import DATA_DIR, TEAM_NAME
+from s3util import DATA_DIR, TEAM_NAME, SUBMITTING_FILE, SUBMISSION_TAG
 
 SUBMISSIONS = Path(__file__).resolve().parent.parent / "submissions"
 DB = DATA_DIR / "features.duckdb"
@@ -311,6 +311,12 @@ def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
     return out
 
 
+def next_submission_path() -> Path:
+    """submissions/<team>_vN.parquet, or <team>_finalN.parquet under PRC_FINAL."""
+    n = len(list(SUBMISSIONS.glob(f"{TEAM_NAME}_{SUBMISSION_TAG}*.parquet"))) + 1
+    return SUBMISSIONS / f"{TEAM_NAME}_{SUBMISSION_TAG}{n}.parquet"
+
+
 def enable_groups(spec: str) -> None:
     """Switch on OPTIONAL feature groups (comma-separated names)."""
     for grp in [g.strip() for g in spec.split(",") if g.strip()]:
@@ -505,13 +511,13 @@ def main() -> None:
                                  normal_r, fit_day_fault(df))
 
     SUBMISSIONS.mkdir(exist_ok=True)
-    out = SUBMISSIONS / f"{TEAM_NAME}_v{len(list(SUBMISSIONS.glob(f'{TEAM_NAME}_v*.parquet'))) + 1}.parquet"
+    out = next_submission_path()
     tmpl = duckdb.connect()
     tmpl.register("preds", rk[["mvt_id", "pred"]])
     tmpl.sql(f"""
         COPY (SELECT t.MVT_ID_mvt,
                      round(coalesce(p.pred, 900))::INTEGER AS TAXITIME_SEC_mvt
-              FROM read_parquet('{DATA_DIR / "submitting.parquet"}') t
+              FROM read_parquet('{SUBMITTING_FILE}') t
               LEFT JOIN preds p ON p.mvt_id = t.MVT_ID_mvt)
         TO '{out}' (FORMAT PARQUET)""")
     print(f"\nwrote {out}")

@@ -18,9 +18,9 @@ from pathlib import Path
 
 import duckdb
 
-from s3util import DATA_DIR, TEAM_NAME
+from s3util import DATA_DIR, TEAM_NAME, SUBMITTING_FILE
 
-TEMPLATE = DATA_DIR / "submitting.parquet"
+TEMPLATE = SUBMITTING_FILE
 
 
 def fail(msg: str) -> None:

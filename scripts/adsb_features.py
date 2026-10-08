@@ -20,7 +20,7 @@ from pathlib import Path
 
 import duckdb
 
-from s3util import DATA_DIR
+from s3util import DATA_DIR, RANKING_FILE
 
 DB = DATA_DIR / "features.duckdb"
 SEG = DATA_DIR / "adsb" / "segments"
@@ -42,7 +42,7 @@ def main() -> None:
                upper(trim(FLIGHT_mvt)) flt, STAND_mvt stand,
                epoch(MVT_TIME_UTC_mvt) t_off, epoch(AOBT_3_flt) t_aobt,
                MVT_TIME_UTC_mvt::DATE d
-        FROM read_parquet(['{DATA_DIR}/training_*.parquet', '{DATA_DIR}/ranking.parquet'])
+        FROM read_parquet(['{DATA_DIR}/training_*.parquet', '{RANKING_FILE}'])
         WHERE PHASE_mvt = 'DEP'
     """)
     # Airline prefix map (flight-number prefix -> ICAO callsign prefix), learnt

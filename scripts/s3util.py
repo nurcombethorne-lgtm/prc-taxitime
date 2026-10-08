@@ -20,6 +20,12 @@ load_dotenv(REPO_ROOT / ".env")
 ENDPOINT = os.environ.get("PRC_S3_ENDPOINT", "https://s3.opensky-network.org")
 TEAM_NAME = os.environ.get("PRC_TEAM_NAME", "resilient-kiwi")
 TEAM_BUCKET = os.environ.get("PRC_TEAM_BUCKET", "prc-2026-resilient-kiwi")
+# Final phase (announced 8 Oct 2026): one blind submission on a four-month
+# ranking set. PRC_FINAL=1 points the whole pipeline at the final files.
+FINAL = os.environ.get("PRC_FINAL", "") not in ("", "0")
+RANKING_FILE = DATA_DIR / ("final_ranking.parquet" if FINAL else "ranking.parquet")
+SUBMITTING_FILE = DATA_DIR / ("final_submitting.parquet" if FINAL else "submitting.parquet")
+SUBMISSION_TAG = "final" if FINAL else "v"
 
 
 def client():

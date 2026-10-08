@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import duckdb
 
-from s3util import DATA_DIR
+from s3util import DATA_DIR, RANKING_FILE
 
 WINDOWS_MIN = (15, 30, 60)
 MAX_TURN = 86400  # ignore a stand match older than a day (stale link)
@@ -334,7 +334,7 @@ def main() -> None:
     con = duckdb.connect(str(out))
     print("building features ...")
     build(con, f"{DATA_DIR}/training_*.parquet", "train_feat", True)
-    build(con, f"{DATA_DIR}/ranking.parquet", "rank_feat", False)
+    build(con, str(RANKING_FILE), "rank_feat", False)
     con.close()
     print(f"wrote {out}")
 
