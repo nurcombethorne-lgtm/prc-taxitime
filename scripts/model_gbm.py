@@ -312,9 +312,12 @@ def predict_normal(boosters: dict, df: pd.DataFrame) -> np.ndarray:
 
 
 def next_submission_path() -> Path:
-    """submissions/<team>_vN.parquet, or <team>_finalN.parquet under PRC_FINAL."""
-    n = len(list(SUBMISSIONS.glob(f"{TEAM_NAME}_{SUBMISSION_TAG}*.parquet"))) + 1
-    return SUBMISSIONS / f"{TEAM_NAME}_{SUBMISSION_TAG}{n}.parquet"
+    """submissions/<team>_vN.parquet; under PRC_FINAL the organisers' required
+    name for the single final submission, <team>_final.parquet."""
+    if SUBMISSION_TAG == "final":
+        return SUBMISSIONS / f"{TEAM_NAME}_final.parquet"
+    n = len(list(SUBMISSIONS.glob(f"{TEAM_NAME}_v*.parquet"))) + 1
+    return SUBMISSIONS / f"{TEAM_NAME}_v{n}.parquet"
 
 
 def enable_groups(spec: str) -> None:
