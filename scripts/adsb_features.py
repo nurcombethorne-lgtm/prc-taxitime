@@ -122,8 +122,10 @@ def main() -> None:
     """)
     con.sql("""
         CREATE OR REPLACE TEMP TABLE cand_prefix AS
-        SELECT DISTINCT d.mvt_id, s.* EXCLUDE (ic, bkt), 4 AS kind,
-               abs(s.t_first_air - d.t_off) AS dist
+        SELECT DISTINCT d.mvt_id, s.hex, s.apt, s.callsign, s.cs, s.t_first_ground, s.t_first_moving,
+               s.t_last_ground, s.t_first_air, s.n_ground, s.lat0, s.lon0, s.gs_first, s.stale_first,
+               s.path_m, s.stopped_s, s.n_stops, s.max_gs, s.actype, s.reg,
+               4 AS kind, abs(s.t_first_air - d.t_off) AS dist
         FROM (SELECT d.*, (d.t_off // 600)::BIGINT + u.o AS bkt
               FROM dep d, (SELECT unnest([-1, 0, 1]) AS o) u
               WHERE d.ic IS NOT NULL AND d.ic <> '') d
