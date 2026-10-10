@@ -135,3 +135,7 @@ are not comparable with those above.
 | v18 | all Jan/Jul 2025 trace days, cascade matcher, distance from stand at first observation | 277.18 |
 | v19 | v18 + out-of-fold corrector (month folds) | 272.81 |
 | v20 | v19 pipeline refitted on 243 trace days of 2025 (was 112) | **271.29** |
+
+Final phase (single blind submission on Jan/Feb/Jun/Jul 2026):
+`resilient-kiwi_final.parquet` is the v20 design with traces for all four
+months and every available 2025 day (486 trace days). See REPRODUCE.md §4b.

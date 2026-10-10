@@ -1899,3 +1899,20 @@ days, against two abandoned runs of over three hours each. Both the
 IN-list and the OR-join had silently become nested loops. Ranking
 coverage so far 58.9% of covered-day rows (February/June 2026 days still
 pulling).
+
+## 10 Oct — final submission built
+
+Pull of the 60 February/June 2026 days finished 9 Oct (42 of 43; the
+43rd was the unrecoverable 31 Dec 2025). 486 trace days in total. Final
+set coverage: 392,808 of 670,790 departures traced (58.6%). The build
+(`experiment_corrector.py --submit`, twelve month folds, 34 LIRF force-D
+rows untouched) wrote `resilient-kiwi_final.parquet`; the validator
+(now accepting the final name) passes: 670,790 rows, min 60, median 945,
+max 90,000. January/July rows agree with v20 within noise (mean
+difference −0.6 s; 203 rows move by more than 600 s, from the extra
+2025 trace days). Per-month medians 930–976 s.
+
+Two days were lost to tooling, not modelling: the trace-table build's
+joins had degenerated to nested loops at 400+ days (fixed: 17 s), and
+the archive downloads restarted from zero on every connection reset
+(fixed: resumable). Both fixes are in the repo; the design is unchanged.

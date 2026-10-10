@@ -73,6 +73,28 @@ The submission version number is taken from the count of existing files
 in `submissions/`, so remove or renumber them to control the output name.
 `upload_submission.py` refuses to upload anything the validator rejects.
 
+## 4b. Final phase (single blind submission, deadline 2026-10-14T10:00Z)
+
+The final ranking set covers January, February, June and July 2026
+(`final_ranking.parquet`, 670,790 departures). Setting `PRC_FINAL=1`
+points every script at the final files and names the output
+`resilient-kiwi_final.parquet`, as the rules require:
+
+```bash
+export PRC_FINAL=1
+uv run scripts/features.py
+uv run scripts/weather_features.py
+uv run scripts/adsb_pull.py --ranking data/final_ranking.parquet   # traces for the new months
+uv run scripts/adsb_features.py
+uv run scripts/experiment_corrector.py --submit                     # writes submissions/resilient-kiwi_final.parquet
+uv run scripts/validate_submission.py submissions/resilient-kiwi_final.parquet
+uv run scripts/upload_submission.py submissions/resilient-kiwi_final.parquet
+```
+
+The model is the v20 design unchanged: the same features, the same
+twelve-month-fold corrector, trained on the same 2025 data. Only the
+ranking file and the trace days differ.
+
 ## 5. What the model does
 
 Target identity, exact in 100% of training rows:
