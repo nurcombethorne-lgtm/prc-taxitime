@@ -4,7 +4,7 @@ The organisers' script errors on any MVT_ID_mvt mismatch, so this checks:
   - exactly the columns MVT_ID_mvt and TAXITIME_SEC_mvt
   - the exact same set of MVT_ID_mvt values (no missing, extra, dupes)
   - no null / NaN / negative predictions
-  - filename matches resilient-kiwi_v<N>.parquet
+  - filename matches resilient-kiwi_v<N>.parquet (or _final.parquet for the final phase)
 
 Usage:
     uv run scripts/validate_submission.py submissions/resilient-kiwi_v1.parquet
@@ -37,8 +37,8 @@ def main() -> None:
     if not TEMPLATE.exists():
         fail(f"{TEMPLATE} not found — run fetch_data.py first")
 
-    if not re.fullmatch(rf"{re.escape(TEAM_NAME)}_v\d+\.parquet", sub.name):
-        fail(f"filename must be {TEAM_NAME}_v<N>.parquet, got {sub.name}")
+    if not re.fullmatch(rf"{re.escape(TEAM_NAME)}_(v\d+|final)\.parquet", sub.name):
+        fail(f"filename must be {TEAM_NAME}_v<N>.parquet or {TEAM_NAME}_final.parquet, got {sub.name}")
 
     con = duckdb.connect()
     cols = [r[0] for r in con.sql(f"DESCRIBE SELECT * FROM read_parquet('{sub}')").fetchall()]
