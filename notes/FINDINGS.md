@@ -1925,3 +1925,9 @@ other teams report adsb.lol downloads at 1–2 MB/s (ours were 12 MB/s
 between resets). A JOAS paper is welcome but not required. Nothing here
 changes the submission: blind scoring means a second upload gives no
 information, so the final file stands unless a defect is found.
+
+**Final submission uploaded 10 Oct 08:03 UTC.** `resilient-kiwi_final.parquet`
+accepted by the checker ("Succeeded", 670,790 pairs used against
+`final_submitting.parquet`); no score, by design. Bucket copy verified
+byte-identical to the committed file. Repository public under GPLv3
+since 8 Oct; design and reproduction documented in REPRODUCE.md §4b.
