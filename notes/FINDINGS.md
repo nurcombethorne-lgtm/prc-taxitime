@@ -1916,3 +1916,12 @@ Two days were lost to tooling, not modelling: the trace-table build's
 joins had degenerated to nested loops at 400+ days (fixed: 17 s), and
 the archive downloads restarted from zero on every connection reset
 (fixed: resumable). Both fixes are in the repo; the design is unchanged.
+
+Discord 9–10 Oct: `_final` uploads are deliberately not scored ("OF
+COURSE they are not ranked"; blind); the design freeze was relaxed —
+"you can change your model till the deadline"; rules on `_flt` columns
+unchanged; the scoring service was down for part of 9 Oct and is back;
+other teams report adsb.lol downloads at 1–2 MB/s (ours were 12 MB/s
+between resets). A JOAS paper is welcome but not required. Nothing here
+changes the submission: blind scoring means a second upload gives no
+information, so the final file stands unless a defect is found.
