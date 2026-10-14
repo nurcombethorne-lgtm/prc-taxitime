@@ -1931,3 +1931,20 @@ accepted by the checker ("Succeeded", 670,790 pairs used against
 `final_submitting.parquet`); no score, by design. Bucket copy verified
 byte-identical to the committed file. Repository public under GPLv3
 since 8 Oct; design and reproduction documented in REPRODUCE.md §4b.
+
+## 14 Oct — deadline day rulings
+
+- espinielli 12 Oct 20:00: "Final phase has priority on ranking: ideally
+  on 4 months unless the distance in ranking on the 2 final months is
+  too big, which could indicate some *special treatment*. BUT
+  documentation is as important as ranking."
+- espinielli 14 Oct 07:35: "The Feb/Jun months will be used for ranking,
+  but we will compare with Jan/Jul and Jan/Feb/Jun/Jul." (A participant
+  had reported one team dropping from 228 to 208 by probing.)
+- espinielli 14 Oct 08:58: submitted repos are forked into
+  github.com/prc-data-challenge-2026; teams notify
+  challenge@opensky-network.org and ping if the fork is missing after
+  24 h. Three forks exist at 09:40 UTC; ours is not among them, so the
+  notification is required (not stated anywhere before today).
+- Large training data (adsb.lol): "provide info/script to fetch" — which
+  REPRODUCE.md does.
