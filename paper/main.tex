@@ -1,0 +1,189 @@
+\documentclass[
+  manuscript=article,
+  layout=preprint,
+  year=2027,
+  volume=x,
+]{extra/joas}
+
+\doi{xx.xxxxx/joas.xxxx.xxxx}
+
+\conference{PRC Data Challenge 2026}
+
+\received {}
+\revised  {}
+\accepted {}
+\published{}
+
+\editor{}
+
+\reviewers{}
+
+\addbibresource{reference.bib}
+
+% --- below is the area for authors ---
+
+\title{Taxi-Out Prediction From Reconciled Records and Open Surface Traces}
+
+\author{Stephen Thorne}
+\affiliation{White Pearl Technology Group AB, Stockholm, Sweden}
+\email{stephen@wptg.ai}
+
+\keywords{taxi-out time; airport operations; ADS-B; gradient boosting; data quality}
+
+\abbreviations{
+    NM: Network Manager,
+    RMSE: root mean square error
+}
+
+\begin{document}
+
+\begin{abstract}
+The PRC Data Challenge 2026 asked participants to predict the taxi-out time of departures at ten European airports from airport movement records and Network Manager flight-plan records, scored by root mean square error on blind months of 2026. This paper describes the solution of team resilient-kiwi and, as importantly, what did not work and why. The target decomposes exactly into a quantity the data already contains, the interval from the Network Manager's off-block stamp to take-off, plus the gap between that stamp and the airport's own, so the model predicts the gap rather than the taxi. Two properties of the labels dominate the error. On a subset of movements the airport's off-block time is a fallback to the scheduled time, which makes the target an observable quantity; a calibrated classifier identifies that regime and a mixture predicts its mean. A handful of records per month carry block times a day out, and these are shown to be unidentifiable from any admissible input. Three open external sources were tested. Routine weather reports transferred to the scored months despite a null validation result, because the driving condition was three times more prevalent in the scored winter; a published airport-level aggregate added nothing; and open ADS-B ground traces from a community archive, matched to departures by callsign, provided an independent witness to the block time at the airports where transponders are active at pushback, and a lagged proxy elsewhere. A second-stage model trained on out-of-fold errors by month added a further gain. Over twenty submissions the public score fell from 511.9 to 271.3 seconds. The paper records the decision rule used to admit a change, the cases where validation misestimated transfer, and the error anatomy that bounds what remains.
+\end{abstract}
+
+
+\section{Introduction}
+
+Taxi-out time, the interval between an aircraft leaving its stand and becoming airborne, is a basic measure of surface efficiency and a component of every departure delay. The PRC Data Challenge 2026 \cite{prc2026} posed it as a prediction task: given twelve months of 2025 movement records at ten airports, predict the taxi-out time of every departure in blind months of 2026, with the organisers scoring submissions by root mean square error against the airports' own records. The records combine two sources that were never reconciled, airport movement data and Network Manager flight-plan data, and the organisers were explicit that the data is messy by design.
+
+This paper reports one team's solution. It is written for a reader who may attempt a similar problem, so it gives equal weight to the negative results, the diagnostics that closed each line of inquiry, and the rule used to decide whether a change was worth submitting. The modelling itself is unremarkable: gradient-boosted trees over engineered features. What determined the outcome was understanding what the labels are, what the error consists of, and which observable quantities carry it.
+
+Three findings may be of wider use. First, where the data contains a strong prior for the target, here the Network Manager's own off-block stamp, the gain from modelling the residual rather than the target is large and is not recoverable by a tree model given the raw target. Second, validation on past months can misestimate transfer to the scored months in either direction when the prevalence of a feature's driving condition differs between the two; checking prevalence, not only the validation metric, decided two of the submissions. Third, open ADS-B archives provide a usable second witness to off-block events at airports where aircraft transponders are active at the gate, and the value of that witness depends on coverage that varies by airport and by season.
+
+\section{Data}
+
+\subsection{Records}
+
+Each movement row carries the reporting airport's data (suffix \texttt{\_mvt}): take-off time, block time, scheduled time, aircraft type, runway, stand and the target, and, where the Network Manager matched a flight plan, the Network Manager's data (suffix \texttt{\_flt}): initial, last and estimated off-block times, the actual off-block time \texttt{AOBT\_3\_flt}, callsign, operator, wake category and market segment. Twelve monthly files cover 2025 with 4,167,797 movements, of which 2,085,047 are departures. The ranking set covers January and July 2026 (344,841 departures) and the final-phase set adds February and June (670,790 departures). In both, the departures' block time and target are blanked; take-off time is not. Arrivals are complete in every file. The challenge documentation lists eleven airports; Antalya does not appear as a reporting airport in any file, and the documented row count matches the ten-airport total exactly.
+
+\subsection{What the target is}
+
+On every training row the target equals the take-off time minus the block time to the second. For a departure with a Network Manager record the target therefore decomposes as
+\begin{equation} \label{eq:decomp}
+y = (t_{\mathrm{off}} - \mathrm{AOBT}_3) + (\mathrm{AOBT}_3 - t_{\mathrm{block}}),
+\end{equation}
+where the first term is observable in the scored set and the second is not. The first term alone predicts the target with an RMSE of 377 s in January 2025, about the same as a naive group-median baseline, so the blanking is effective: the Network Manager stamp is a feature, not a leak. The second term, the gap between the two organisations' off-block stamps, is the bulk of the matched-flight error. Its standard deviation ranges from 235 s at Frankfurt to 434 s at Istanbul, it carries a systematic per-airport offset (Istanbul median $-296$ s, Rome $+118$ s), and it is autocorrelated within the hour (0.12 to 0.39 with the previous hour's mean gap).
+
+\subsection{Two label regimes}
+
+\textbf{The scheduled-time fallback.} On a subset of movements the airport's block time is not a captured pushback but the scheduled time, so the target is exactly the take-off time minus the scheduled time, an observable quantity we denote $D$. Among Rome departures with $D$ over two hours, 89\% satisfy $|t_{\mathrm{block}} - t_{\mathrm{sched}}| \le 60$ s. Those flights are 0.3\% of Rome's rows and 81\% of its squared error, and Rome was about 40\% of the competition's error. The discriminating observable is whether the movement has a Network Manager record at all: movements with none are 54.8\% fallback against 2.9\% for the rest. The regime is essentially confined to Rome (49\% of unmatched high-delay flights, against about zero elsewhere), so any model of it must not pool across airports. The organisers confirmed the block time comes from the airports and that they could not explain the fallback.
+
+\textbf{The day fault.} About fifteen training departures carry a target of 86,400 s plus a normal taxi: the block time is dated a day early. Fourteen of the fifteen have no Network Manager record. For roughly half, every column visible in the scored set looks ordinary, so there is no signature to key on. At a rate of 15 in 2.1 million, one or two such rows are expected among the scored departures, and a single one contributes about 10,000 to the mean squared error, or about 21 s of RMSE at a score of 240 s. A large share of every team's score therefore rests on one or two rows that no model can see.
+
+\section{Methods}
+
+\subsection{Validation}
+
+The model was fitted on ten months of 2025 and scored on January and July 2025, with each airport scored only on the months in which it appears in the ranking file and weighted by its share of ranking rows; both are read from the ranking file, so the harness adapted to the organisers' re-issue of the set in September without change. The headline figure swings on a handful of corrupted rows at Paris and Rome, so changes were judged on a stable-only figure that excludes those two airports, printed separately for each month. Repeated runs of the same configuration differ by up to 5 s, and a submission that tuned boosting rounds and seeds on the validation curve improved validation by 4.2 s and worsened the board by 0.2 s. From then on a change was submitted only if it had a mechanism, improved the stable figure by at least 3 s with January and July both improving, showed a consistent per-airport pattern, and had matching feature distributions in training and ranking data.
+
+\subsection{Model}
+
+The target is a mixture, so the prediction is its mean,
+\begin{equation} \label{eq:mixture}
+\hat{y} = p\,D + (1 - p)\,\hat{y}_{\mathrm{normal}},
+\end{equation}
+where $p$ is a LightGBM \cite{ke2017lightgbm} binary classifier for the fallback regime, trained on all rows with a $D$ and calibrated almost exactly on validation (predicted 0.010, 0.118, 0.295, 0.598, 0.920 in five bins against observed 0.008, 0.119, 0.300, 0.596, 0.922), and $\hat{y}_{\mathrm{normal}}$ is the ordinary taxi. For matched flights the normal model is three seed-averaged LightGBM regressors trained on the residual $y - (t_{\mathrm{off}} - \mathrm{AOBT}_3)$, since a tree cannot represent a constant plus a correction from constant leaves; moving to the residual target improved the board by 14 s. Unmatched flights get a separate model on the raw target. For the Rome subgroup with no Network Manager record and $D \ge 6$ h the prediction is $D$ outright: in training that subgroup is a normal taxi 1 time in 63, and the mixture's hedge toward the normal branch cost tens of thousands of seconds per row. Predictions are clipped to $[60, 90000]$ s.
+
+Features are the Network Manager timing columns (the recovered interval, the actual off-block minus each of the estimated, last and initial off-block times), congestion as running balances of pushbacks against take-offs and landings against on-blocks, recent throughput, scheduled demand, an hour-level nowcast of how late the airport is pushing against plan, turnaround linkage to the inbound leg through stand and on-block adjacency, categorical stand, runway, aircraft type, operator, destination and wake category, and the external features below. Turnaround and the per-flight plan-revision gaps are withheld from the unmatched model, where their reference time is unreliable.
+
+A second-stage corrector \cite{wolpert1992stacked} was added late. For each fit month the base pipeline is trained on the other months and predicts the held-out one; a small LightGBM then learns the base error on those out-of-fold rows from the features and the base outputs, with rows whose base error exceeds 20,000 s excluded. Folds are by month, not by day, so the corrector sees the base model's out-of-time error, which is what the scored months present.
+
+\subsection{External data}
+
+\textbf{Weather.} Routine aerodrome reports from the Iowa Environmental Mesonet archive \cite{iem2026}, joined to each departure at its airport within 90 minutes of take-off: temperature, visibility, wind, precipitation, dew-point spread, and flags for de-icing risk, low visibility, snow and freezing, plus cumulative measures over 6 and 12 hours and hours since the airfield was last above freezing.
+
+\textbf{Surface traces.} The adsb.lol archive \cite{adsblol2026} publishes one file per day of every aircraft trace heard by its receiver network, under an open licence. For every aircraft on the ground inside an airport's bounding box the extractor records the first observation, the first observation moving, the last ground point, the lift-off, the callsign, aircraft type and registration, and surface movement statistics. Segments are matched to departures by a cascade: Network Manager callsign, then the movement flight number used as a callsign, then a callsign guessed from the flight number through an airline-prefix map learnt from matched rows, then airline prefix with a unique lift-off within 90 s. Measured on rows where the true callsign is known, the four keys have precisions of 100\%, 100\%, 99.9\% and 96.7\%; lift-off time alone has 82.6\% and was not used. Stand positions are learnt from the traces themselves as the median first position of aircraft stationary when first heard, so no external airport map is needed. The features are the trace's own taxi estimates, their difference from the Network Manager stamp, the distance from the stand at first observation and the speed then, and a coverage flag for the day. The organisers ruled on 19 September that open trajectory archives may be used if declared.
+
+\section{Results}
+
+\subsection{Score trajectory}
+
+Figure \ref{fig:trajectory} shows every submission on the regenerated ranking set, and Table \ref{tb:scores} lists the mechanism behind each. The scores on the original extract (511.9 to 291.6 over eight submissions) are not comparable: the re-issue changed July from three airports to ten and from 29\% to 56\% of the rows.
+
+\begin{figure}[htbp!]
+  \centering
+  \includegraphics[width=0.95\textwidth]{trajectory}
+  \caption{Public-board RMSE by submission on the regenerated ranking set.}
+  \label{fig:trajectory}
+\end{figure}
+
+\begin{table}[htbp!]
+  \centering
+  \small
+  \caption{Submissions on the regenerated ranking set. Validation is the stable-only figure where recorded.}
+  \label{tb:scores}
+  \begin{tabular}{llrr}
+  \toprule
+  \textbf{Ver} & \textbf{Change} & \textbf{Validation} & \textbf{Board} \\
+  \midrule
+  9  & mixture, residual target, turnaround, calibrated $p$ & 229.8 & 321.89 \\
+  10 & METAR features & 228.6 & 318.06 \\
+  11 & cumulative de-icing features & 228.5 & 316.80 \\
+  12 & three-way day-fault rule at Rome & 216 & 319.70 \\
+  13 & predict $D$ outright on the Rome subgroup & 228.8 & 301.70 \\
+  14 & plan-revision gaps and airport nowcast & 225.2 & 296.47 \\
+  15 & month feature removed & 225.2 & 296.56 \\
+  16 & ADS-B traces, 98 days & 222.9 & 285.75 \\
+  17 & 135 trace days & 220.4 & 284.56 \\
+  18 & all Jan/Jul 2025 traces, cascade matcher, stand distance & 208.4 & 277.18 \\
+  19 & out-of-fold corrector & 206.0 & 272.81 \\
+  20 & 243 trace days of 2025 & 201.2 & 271.29 \\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Weather transferred despite a null validation}
+
+Adding instantaneous weather moved validation by under 1 s, below the noise floor. The driving condition explained why: de-icing weather occurred on 0.68\% of validation departures, 1.96\% of the scored set and 4.42\% of January 2026, a severe winter. A model without the features cannot adapt to that shift at all, so the validation gain was the wrong estimator. Submitted on that argument, the features gained 3.8 s on the board, about the 3$\times$ ratio the prevalence gap implied. The cumulative features repeated the pattern at a 1.9$\times$ ratio, predicted about 1 s, delivered 1.26 s.
+
+\subsection{The day-fault rule failed, and the failure was diagnostic}
+
+The fifteen training day-fault rows share a signature: no Network Manager record, take-off 14 to 26 hours after schedule. A three-way mixture for the Rome subgroup with $D \ge 6$ h, with shares estimated per band, improved validation by 20.5 s and worsened the board by 2.9 s on 26 affected rows. Reconstructing what the rule did to those rows and computing what each hypothesis about the hidden truth would predict for the observed loss, the fallback hypothesis predicted $+3.7$ s and the day-fault hypothesis $+70$ s. The unblanked 2026 arrivals supported the same reading: the fallback regime survives there at the 2025 rate while the day fault is near-absent. Predicting $D$ outright on that subgroup gained 15 s. A rule that targets a data fault should be checked for the fault's presence wherever the scored set exposes it; a re-export can silently remove a fault class.
+
+\subsection{Surface traces}
+
+A one-day pilot on 15 July 2025 established what the traces are. At Schiphol the first moving observation lands on the airport's block time with a median error of $-1$ s and 56\% within a minute, against 26\% for the Network Manager stamp, and the two witnesses' errors are independent (correlation 0.07). At Frankfurt, Rome, Zurich and Barcelona the trace begins 5 to 11 minutes after the block time, at taxi start rather than pushback, with a wider spread than the Network Manager stamp; it is a lagged proxy, but one that sides with the airport's record on 78 to 90\% of the rows where the Network Manager stamp is more than ten minutes out. Munich, Istanbul, Paris and Heathrow had no surface coverage on that day. Coverage varies by season as well as by airport: Munich is 96\% covered in January and Rome 88\% in July and 0.1\% in January, so the day-coverage flag and airport-specific learning are both needed.
+
+On validation, with a quarter of the days covered, the trace features improved the stable figure on covered days from 231.9 to 221.0 s and left uncovered days unchanged, so there was no leakage through the coverage flag. The board gain of 10.7 s exceeded the estimate, consistent with the 2026 receiver network hearing aircraft nearer the stand (median first-observation distance at Heathrow 358 m in 2025, 43 m in 2026). Training days then mattered: a leave-one-airport-out test showed the architecture already takes 18 to 32 s from a trace at an airport whose traces it never saw in training, and about 18 s more once it has, so every available 2025 day was pulled.
+
+Three trace-derived features were null in validation and were not submitted: surface congestion counts from all traced aircraft, which the throughput and nowcast features already carry; surface movement statistics; and a time-only matcher for the departures without a Network Manager record, which is wrong one time in four on the rows where the truth is known.
+
+\subsection{Error anatomy and the ceiling}
+
+With the final configuration, the top 1\% of validation rows carry 67\% of squared error. Five rows with errors over 20,000 s carry 34\%: two Paris departures with no Network Manager record and day-out block times, two Rome day faults, and one Rome row where the calibrated hedge toward $D$ was wrong. Without those five rows the validation RMSE is 218 s in January and 297 s in July. A competing team at 237 s on the board reported 219 and 314 on the same holdouts, so the model is level with that group where the error is reducible; the difference on the public board is the handful of unpredictable rows. These are recoverable from the scoring endpoint, since RMSE feedback is invertible one row at a time, and the organisers introduced a blind final phase on additional months in response. We did not use the endpoint that way.
+
+Every other line was closed on evidence. Per-airport models, out-of-fold target encoding, a second tree family, blending, hyperparameter tuning, the published airport-level monthly aggregates (admissible, worth 0.3 s), runway configuration state, taxi-duration dispersion, an arrival-based correction for the 2026 shift in taxi-in times (month-to-month transfer correlation 0.04), and a same-day arrival anomaly (2025 contains no severely disrupted day at four of the airports for a tree to learn from) each moved the stable figure by less than the noise floor or failed the transfer test. A calibrated check of the extremes shows the model slightly over-predicts in the far tail when conditioned on its own predictions; the alarming under-prediction seen when conditioning on the true value is regression to the mean, not a correctable bias.
+
+\subsection{Generalisation to the final months}
+
+Held out in the same harness, February and June 2025 score 292.4 s headline and 209.7 s stable-only against 317.6 and 201.1 for January and July, with Istanbul worse in February (a snow closure) and Rome worse (its lottery rows fall differently). The design was frozen before the final phase was announced and submitted unchanged on the four-month set, with traces for all 486 available days; 58.6\% of final-set departures matched a trace.
+
+\section{Discussion}
+
+The gains came from understanding the labels rather than from the learner. The residual formulation, the fallback mixture and the commitment to $D$ on the Rome subgroup together account for about 70 s; the external sources for about 30 s; everything else, including the corrector, for under 10 s. Each transferred change had a mechanism stated before submission, and the two that did not transfer, a tuning pass and the day-fault rule, were the two without one or with one that the scored set had silently removed.
+
+Validation on past months is a fair guide to direction and a rough guide to size, with one systematic exception. When a feature's driving condition is more prevalent in the scored months than in validation, as de-icing weather was, validation understates the gain; when less prevalent, as the day fault was, validation overstates it, and a rule fitted to a few dozen rows cannot tell which. Prevalence in the scored set is observable for weather, for coverage and, through the unblanked arrivals, for the label regimes, and should be checked before trusting the metric either way.
+
+The surface traces are the finding most likely to be useful beyond this challenge. Where transponders are on at pushback, an open community archive provides a timestamp for the off-block event that is independent of both the airport's and the Network Manager's records, with precision comparable to the better of the two. Where they are not, the trace still bounds the event from above. Both facts depend on receiver coverage that differs by airport, by season and between years, so any operational use needs the coverage measured on the period in question rather than assumed.
+
+What remains is mostly not modelling. A day-out block time with no visible signature is a data-quality problem for the reporting airport, and a scheduled-time fallback is a reconciliation problem between the airport and the Network Manager. Both would be cheaper to fix at source than to predict.
+
+\section{Conclusion}
+
+A gradient-boosted model over reconciled timing features, a calibrated mixture for a known label artefact, open weather reports and open ADS-B surface traces reduced the public-board RMSE from 511.9 to 271.3 s across twenty submissions, with every admitted change backed by a stated mechanism and most of the gain traceable to understanding what the records contain. The remaining error is concentrated in a few records per month that no admissible input identifies.
+
+\section*{Acknowledgement}
+Thanks to the EUROCONTROL Performance Review Commission and the OpenSky Network for the challenge and the data, to the adsb.lol contributors and the Iowa Environmental Mesonet for the open archives, and to the participants on the challenge's Discord channel, whose shared diagnostics sharpened several of the analyses here.
+
+\section*{Funding statement}
+No external funding.
+
+\section*{Open data statement}
+The challenge data is provided by the organisers to participants and will be released as open data with the organisers' data paper. Weather observations are from the Iowa Environmental Mesonet archive \cite{iem2026} and aircraft traces from the adsb.lol globe history archive \cite{adsblol2026} (Open Database License / CC0); both are fetched by scripts in the repository. No other data was used.
+
+\section*{Reproducibility statement}
+All code is at \url{https://github.com/nurcombethorne-lgtm/prc-taxitime} under GPLv3 \cite{resilientkiwi2026}, with a fork at the tagged pre-deadline commit in \url{https://github.com/prc-data-challenge-2026/resilient-kiwi}. \texttt{REPRODUCE.md} gives the exact command sequence for the final submission, \texttt{notes/FINDINGS.md} records every experiment in this paper with its numbers, including the negative results, and Figure \ref{fig:trajectory} and Table \ref{tb:scores} are drawn from the submission log there.
+
+\printbibliography
+
+\end{document}
