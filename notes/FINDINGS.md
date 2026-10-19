@@ -1948,3 +1948,21 @@ since 8 Oct; design and reproduction documented in REPRODUCE.md §4b.
   notification is required (not stated anywhere before today).
 - Large training data (adsb.lol): "provide info/script to fetch" — which
   REPRODUCE.md does.
+
+## 19 Oct — after the deadline
+
+No results yet. The organisers' "What's next" (challenge home page):
+final submission files collected; shared repos forked into the
+prc-data-challenge-2026 GitHub organisation with the last pre-deadline
+commit tagged; submissions ranked, then code and documentation assessed
+at the tagged commit; rank and documentation combined into a final
+leaderboard; **winners announced at the 14th OpenSky Symposium, CRIDA,
+Madrid, 29–30 October 2026**; materials on the website in December;
+dataset released as open data with a JOAS data paper by end Q1 2027;
+teams' JOAS papers reviewed in Q1 2027.
+
+Our repository is forked into the organisation (59 forks on 19 Oct).
+Final-phase uploads produce no `_result.json` by design (the scorer
+matches `_vN` only); the organiser downloaded every `_final.parquet`
+version from before the deadline, so later re-uploads do not matter.
+Notification email sent 14 Oct.
